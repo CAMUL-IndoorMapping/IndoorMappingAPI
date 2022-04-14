@@ -1,2 +1,4 @@
 Flask
 twilio
+mysql.connector
+python-decouple
