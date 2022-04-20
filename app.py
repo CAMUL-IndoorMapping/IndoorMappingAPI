@@ -73,5 +73,104 @@ def getReviews():
 
   return jsonify(retorno)
 
+
+# vitor (não te esqueças que vais ter de receber o auth token no header de alguns requests)
+@app.route("/account/login", methods=["GET"])
+def accountLogin():
+  return jsonify({})
+
+
+@app.route("/account/signup", methods=["POST"])
+def accountSignup():
+  return jsonify({})
+
+
+@app.route("/account/forgot", methods=["GET", "POST"])
+def accountForgot():
+  if request.method=="GET":
+    pass
+
+  if request.method=="POST":
+    pass
+
+  return jsonify({})
+
+
+@app.route("/account/logout", methods=["PUT"])
+def accountLogout():
+  return jsonify({})
+
+
+# ancre g.
+@app.route("/search/beacons/<id>", methods=["GET"])
+def searchBeacon():
+  return jsonify({})
+
+
+@app.route("/map/beacons", methods=["POST"])
+def placeBeacon():
+  return jsonify({})
+
+
+# daniel
+@app.route("/search/waypoints", methods=["GET"])
+def searchWaypoint():
+  return jsonify({})
+
+
+@app.route("/search/classrooms/<id>", methods=["GET"])
+def searchClassrooms():
+  return jsonify({})
+
+
+@app.route("/search/departments/<id>", methods=["GET"])
+def searchDepartments():
+  return jsonify({})
+
+
+# andre m.
+@app.route("/map/waypoint", methods=["POST"])
+def placeWaypoint():
+  return jsonify({})
+
+
+@app.route("/map/path", methods=["POST"])
+def placePath():
+  return jsonify({})
+
+
+@app.route("/account/feedback", methods=["GET", "POST"])
+def feedback():
+  if request.method=="GET":
+    pass
+
+  if request.method=="POST":
+    pass
+
+  return jsonify({})
+
+
+# francisco (não te esqueças que tens de receber o header com o token de autenticação)
+@app.route("/account/delete", methods=["DELETE"])
+def accountDelete():
+  return jsonify({})
+
+
+@app.route("/account/change", methods=["PUT"])
+def accountDelete():
+  return jsonify({})
+
+
+@app.route("/account/reviews", methods=["GET", "POST"])
+def accountReviews():
+  if request.method=="GET":
+    pass
+
+  if request.method=="POST":
+    pass
+
+  return jsonify({})
+
+
 if __name__ == "__main__":
   app.run()
