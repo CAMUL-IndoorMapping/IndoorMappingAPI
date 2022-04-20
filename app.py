@@ -131,23 +131,34 @@ def searchDepartments():
 # andre m.
 @app.route("/map/waypoint", methods=["POST"])
 def placeWaypoint():
-  return jsonify({})
+  db_obj=db_connection()
+  mydb=db_obj["mydb"]
+  mycursor=db_obj["mycursor"]
+  return jsonify({"status":"success"})
 
 
 @app.route("/map/path", methods=["POST"])
 def placePath():
-  return jsonify({})
+  db_obj=db_connection()
+  mydb=db_obj["mydb"]
+  mycursor=db_obj["mycursor"]
+  
+  return jsonify({"status":"success"})
 
 
 @app.route("/account/feedback", methods=["GET", "POST"])
 def feedback():
+  db_obj=db_connection()
+  mydb=db_obj["mydb"]
+  mycursor=db_obj["mycursor"]
+
   if request.method=="GET":
     pass
 
   if request.method=="POST":
     pass
 
-  return jsonify({})
+  return jsonify({"status":"success"})
 
 
 # francisco (não te esqueças que tens de receber o header com o token de autenticação)
