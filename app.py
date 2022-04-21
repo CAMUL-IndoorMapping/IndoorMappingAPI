@@ -64,7 +64,6 @@ def getReviews():
   mycursor=db_obj["mycursor"]
 
   mycursor.execute("SELECT user.name, review.text FROM review INNER JOIN user ON review.idUser=user.id")
-
   myresult = mycursor.fetchall()
 
   retorno=[]
@@ -131,10 +130,25 @@ def searchDepartments():
 # andre m.
 @app.route("/map/waypoint", methods=["POST"])
 def placeWaypoint():
+
+  if not request.json("idPath") or not request.json("x") or not request.json("y") or not request.json("z") or not request.headers.get("authToken"):
+    return jsonify({"status":"missing parameter(s)"})
+
   db_obj=db_connection()
   mydb=db_obj["mydb"]
   mycursor=db_obj["mycursor"]
-  return jsonify({"status":"success"})
+
+  mycursor.execute("SELECT user.id FROM user INNER JOIN role ON user.idRole=role.id WHERE authToken=%s AND role.name='admin'", (request.headers.get("authToken"), ))
+  myresult = mycursor.fetchall()
+
+  if len(myresult)>0:
+    mycursor.execute("INSERT INTO waypoint(idPath, x, y, z) VALUES (%s, %s, %s, %s)", (int(request.json("idPath")), request.json("x"), request.json("y"), request.json("z")))
+    mydb.commit()
+
+    return jsonify({"status":"success"})
+
+  return jsonify({"status":"no permission"})
+  
 
 
 @app.route("/map/path", methods=["POST"])
@@ -142,7 +156,7 @@ def placePath():
   db_obj=db_connection()
   mydb=db_obj["mydb"]
   mycursor=db_obj["mycursor"]
-  
+
   return jsonify({"status":"success"})
 
 
@@ -168,7 +182,7 @@ def accountDelete():
 
 
 @app.route("/account/change", methods=["PUT"])
-def accountDelete():
+def accountChange():
   return jsonify({})
 
 
