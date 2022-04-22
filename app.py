@@ -163,12 +163,28 @@ def accountDelete():
 
 @app.route("/account/reviews", methods=["GET", "POST"])
 def accountReviews():
+  db_obj=db_connection()
+  mydb=db_obj["mydb"]
+  mycursor=db_obj["mycursor"]
+
   if request.method=="GET":
-    pass
+    mycursor.execute("SELECT user.name, review.text FROM review INNER JOIN user ON review.idUser=user.id")
+
+    myresult = mycursor.fetchall()
+
+    resultList=[]
+    for result in myresult:
+      resultList.append({"username":result[0], "review":result[1]})
 
   if request.method=="POST":
-    pass
 
+    if not request.json("idUser") or not request.json("body") or not request.headers.get("authToken"):
+      return jsonify({"status":"missing parameter(s)"})
+
+    mycursor.execute("INSERT INTO review(idUser, body) VALUES (%s, %s)", (int(request.json("idUser")), request.json("body")))
+    mydb.commit()
+
+    return jsonify({"status":"success"})
   return jsonify({})
 
 
