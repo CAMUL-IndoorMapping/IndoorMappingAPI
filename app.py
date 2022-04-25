@@ -130,8 +130,12 @@ def searchDepartments():
 # andre m.
 @app.route("/map/waypoint", methods=["POST"])
 def placeWaypoint():
+  # Content-Type: application/json
+  # authToken: <session token>
 
-  if not request.json("idPath") or not request.json("x") or not request.json("y") or not request.json("z") or not request.headers.get("authToken"):
+  parameters=request.get_json()
+
+  if not parameters["idPath"] or not parameters["x"] or not parameters["y"] or not parameters["z"] or not request.headers.get("authToken"):
     return jsonify({"status":"missing parameter(s)"})
 
   db_obj=db_connection()
@@ -142,7 +146,7 @@ def placeWaypoint():
   myresult = mycursor.fetchall()
 
   if len(myresult)>0:
-    mycursor.execute("INSERT INTO waypoint(idPath, x, y, z) VALUES (%s, %s, %s, %s)", (int(request.json("idPath")), request.json("x"), request.json("y"), request.json("z")))
+    mycursor.execute("INSERT INTO waypoint(idPath, x, y, z) VALUES (%s, %s, %s, %s)", (int(parameters["idPath"]), parameters["x"], parameters["y"], parameters["z"]))
     mydb.commit()
 
     return jsonify({"status":"success"})
