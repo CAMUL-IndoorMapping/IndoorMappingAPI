@@ -131,6 +131,11 @@ def searchDepartments():
 @app.route("/map/waypoint", methods=["POST"])
 def placeWaypoint():
   # Content-Type: application/json
+  # Parameters: 
+  #   idPath -> id do path a que pertence o waypoint
+  #   x -> coordenada X no mapa
+  #   y -> coordenada Y no mapa
+  #   z -> andar do edificio
   # authToken: <session token>
 
   parameters=request.get_json()
@@ -157,11 +162,31 @@ def placeWaypoint():
 
 @app.route("/map/path", methods=["POST"])
 def placePath():
+  # Content-Type: application/json
+  # Parameters:
+  #   beaconFrom -> id do beacon de partida
+  #   beaconTo -> id do beacon de chegada
+  # authToken: <session token>
+
+  parameters=request.get_json()
+
+  if not parameters["beaconFrom"] or not parameters["beaconTo"] or not request.headers.get("authToken"):
+    return jsonify({"status":"missing parameter(s)"})
+
   db_obj=db_connection()
   mydb=db_obj["mydb"]
   mycursor=db_obj["mycursor"]
 
-  return jsonify({"status":"success"})
+  mycursor.execute("SELECT user.id FROM user INNER JOIN role ON user.idRole=role.id WHERE authToken=%s AND role.name='admin'", (request.headers.get("authToken"), ))
+  myresult = mycursor.fetchall()
+
+  if len(myresult)>0:
+    mycursor.execute("INSERT INTO path(idBeacon_From, idBeacon_To) VALUES (%s, %s)", (int(parameters["beaconFrom"]), int(parameters["beaconTo"]) ))
+    mydb.commit()
+
+    return jsonify({"status":"success"})
+
+  return jsonify({"status":"no permission"})
 
 
 @app.route("/account/feedback", methods=["GET", "POST"])
