@@ -157,12 +157,55 @@ def accountDelete():
 
 
 @app.route("/account/change", methods=["PUT"])
-def accountDelete():
-  return jsonify({})
+def accountChange():
+    # Content-Type: application/json
+    # Parameters: 
+    #   username -> username of the account whose password is being changed
+    #   oldPassword -> old password to confirm user's auth
+    #   newPassword -> new password to be set
+    #
+    # authToken: <session token>
+
+    db_obj=db_connection()
+    mydb=db_obj["mydb"]
+    mycursor=db_obj["mycursor"]
+
+    parameters=request.get_json()
+
+    if not parameters["username"] or not parameters["oldPassword"] or not parameters["newPassword"] or not request.headers.get("authToken"):
+      return jsonify({"status":"missing parameter(s)"})
+
+    # Verify user
+    mycursor.execute("SELECT user.id FROM user WHERE authToken=%s AND user.name=%s", (request.headers.get("authToken"), parameters["username"] ))
+    myresult = mycursor.fetchall()
+
+    if len(myresult)>0:
+
+      mycursor.execute("SELECT user.id FROM user WHERE user.name=%s AND user.password=%s", (parameters["username"], parameters["oldPassword"] ))
+      myresult = mycursor.fetchall()
+
+      if len(myresult)>0:
+        mycursor.execute("UPDATE user SET user.password=%s WHERE user.name=%s AND user.password=%s", (parameters["newPassword"], parameters["username"], parameters["oldPassword"]))
+        mydb.commit()
+
+        return jsonify({"status":"success"})
+
+      return jsonify({"status":"wrong password"})
+    
+    return jsonify({"status":"no permission"})
 
 
 @app.route("/account/reviews", methods=["GET", "POST"])
 def accountReviews():
+    # Content-Type: application/json
+    # Parameters POST: 
+    #   idUser -> id of the user attempting to post a review
+    #   body -> text to be included in said review
+    #
+    # Parameters GET:
+    #   None
+    #   
+    # authToken: <session token>
   db_obj=db_connection()
   mydb=db_obj["mydb"]
   mycursor=db_obj["mycursor"]
@@ -176,15 +219,25 @@ def accountReviews():
     for result in myresult:
       resultList.append({"username":result[0], "review":result[1]})
 
-  if request.method=="POST":
+    return jsonify(resultList)
 
-    if not request.json("idUser") or not request.json("body") or not request.headers.get("authToken"):
+  if request.method=="POST":
+    parameters=request.get_json()
+
+    if not parameters["idUser"] or not parameters["body"] or not request.headers.get("authToken"):
       return jsonify({"status":"missing parameter(s)"})
 
-    mycursor.execute("INSERT INTO review(idUser, body) VALUES (%s, %s)", (int(request.json("idUser")), request.json("body")))
-    mydb.commit()
+    # Verify user
+    mycursor.execute("SELECT user.id FROM user WHERE authToken=%s AND user.id=%s", (request.headers.get("authToken"), int(parameters["idUser"]) ))
+    myresult = mycursor.fetchall()
 
-    return jsonify({"status":"success"})
+    if len(myresult)>0:
+      mycursor.execute("INSERT INTO review(idUser, text) VALUES (%s, %s)", (int(parameters["idUser"]), parameters["body"]))
+      mydb.commit()
+
+      return jsonify({"status":"success"})
+    
+    return jsonify({"status":"no permission"})
   return jsonify({})
 
 
