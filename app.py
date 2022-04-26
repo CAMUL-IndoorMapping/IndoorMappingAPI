@@ -153,7 +153,40 @@ def feedback():
 # francisco (não te esqueças que tens de receber o header com o token de autenticação)
 @app.route("/account/delete", methods=["DELETE"])
 def accountDelete():
-  return jsonify({})
+    # Content-Type: application/json
+    # Parameters: 
+    #   username -> username of the account whose account is being deleted
+    #   password -> password to confirm user's auth
+    #
+    # authToken: <session token>
+
+    db_obj=db_connection()
+    mydb=db_obj["mydb"]
+    mycursor=db_obj["mycursor"]
+
+    parameters=request.get_json()
+
+    if not parameters["username"] or not parameters["password"] or not request.headers.get("authToken"):
+      return jsonify({"status":"missing parameter(s)"})
+
+    # Verify user
+    mycursor.execute("SELECT user.id FROM user WHERE authToken=%s AND user.name=%s", (request.headers.get("authToken"), parameters["username"] ))
+    myresult = mycursor.fetchall()
+
+    if len(myresult)>0:
+
+      mycursor.execute("SELECT user.id FROM user WHERE user.name=%s AND user.password=%s", (parameters["username"], parameters["password"] ))
+      myresult = mycursor.fetchall()
+
+      if len(myresult)>0:
+        mycursor.execute("DELETE FROM user WHERE user.name=%s AND user.password=%s", (parameters["username"], parameters["password"]))
+        mydb.commit()
+
+        return jsonify({"status":"success"})
+
+      return jsonify({"status":"wrong password"})
+    
+    return jsonify({"status":"no permission"})
 
 
 @app.route("/account/change", methods=["PUT"])
