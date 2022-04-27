@@ -136,13 +136,17 @@ def searchDepartments():
 # andre m.
 @app.route("/map/waypoint", methods=["POST"])
 def placeWaypoint():
-  # Content-Type: application/json
-  # Parameters: 
-  #   idPath -> id do path a que pertence o waypoint
-  #   x -> coordenada X no mapa
-  #   y -> coordenada Y no mapa
-  #   z -> andar do edificio
-  # authToken: <session token>
+  """
+  Parameters: 
+    idPath -> id do path a que pertence o waypoint
+    x -> coordenada X no mapa
+    y -> coordenada Y no mapa
+    z -> andar do edificio
+  
+  Headers:
+    Content-Type: application/json
+    authToken: <session token>
+  """
 
   parameters=request.get_json()
 
@@ -168,11 +172,14 @@ def placeWaypoint():
 
 @app.route("/map/path", methods=["POST"])
 def placePath():
-  # Content-Type: application/json
-  # Parameters:
-  #   beaconFrom -> id do beacon de partida
-  #   beaconTo -> id do beacon de chegada
-  # authToken: <session token>
+  """ 
+  Parameters:
+    beaconFrom -> id do beacon de partida
+    beaconTo -> id do beacon de chegada
+  Headers:
+    authToken: <session token>
+    Content-Type: application/json
+  """
 
   parameters=request.get_json()
 
@@ -197,27 +204,42 @@ def placePath():
 
 @app.route("/account/feedback", methods=["GET", "POST"])
 def feedback():
-    # Content-Type: application/json
-    # Parameters POST: 
-    #   type -> text ou image ou video ou audio
-    #   content -> ficheiro em base64 ou texto normal. o plain text em base64 não pode ter o seguinte texto, nem nada que se assemelhe: data:image/png;base64, 
-    #   idUser -> id do utilizador que está a fazer o upload
-    #   idBeacon -> id do beacon
-    # Parameters GET:
-    #   idUser
-    #   
-    # authToken: <session token>
-    #
-    # NOTA: PARA ACEDER AOS UPLOADS, USAR O ENDPOINT: /uploads/nomedoficheiro.ext
+  """
+  Parameters POST: 
+    type -> text ou image ou video ou audio
+    content -> ficheiro em base64 ou texto normal. o plain text em base64 não pode ter o seguinte texto, nem nada que se assemelhe: data:image/png;base64, 
+    idUser -> id do utilizador que está a fazer o upload
+    idBeacon -> id do beacon
+  Parameters GET:
+    idUser (optional)
+  Headers:
+    authToken: <session token>
+    Content-Type: application/json
   
-  
+  NOTA: PARA ACEDER AOS UPLOADS, USAR O ENDPOINT: /uploads/nomedoficheiro.ext 
+  """
 
   db_obj=db_connection()
   mydb=db_obj["mydb"]
   mycursor=db_obj["mycursor"]
 
   if request.method=="GET":
-    pass
+    sql_query="SELECT id, idBeacon, content, idUser, type FROM note"
+    params=()
+
+    if request.args.get("idUser"):
+      sql_query+=" WHERE idUser=%s"
+      params=(int(request.args.get("idUser")),)
+
+    print(sql_query)
+    mycursor.execute(sql_query, params)
+    myresult = mycursor.fetchall()
+
+    notes=[]
+    for x in myresult:
+      notes.append({"id":x[0], "idBeacon":x[1], "content":x[2], "idUser":x[3], "type":x[4]})
+
+    return jsonify({"feedback":notes})
 
   if request.method=="POST":
     parameters=request.get_json()
@@ -266,10 +288,13 @@ def feedback():
 
 @app.route('/uploads/<filename>',methods = ['GET'])
 def get_files(filename):
-    try:
-      return send_from_directory("uploads/", filename)
-    except FileNotFoundError:
-      abort(404)
+  """
+    endpoint: /uploads/<nome do ficheiro>
+  """
+  try:
+    return send_from_directory("uploads/", filename)
+  except FileNotFoundError:
+    abort(404)
 
 
 # francisco (não te esqueças que tens de receber o header com o token de autenticação)
