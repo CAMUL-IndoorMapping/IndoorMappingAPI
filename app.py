@@ -115,17 +115,72 @@ def placeBeacon():
 # daniel
 @app.route("/search/waypoints", methods=["GET"])
 def searchWaypoint():
-  return jsonify({})
+  """ 
+  Returns all waypoints
+
+  :return: The list of waypoints
+  :rtype: list[waypoint]
+  """
+  db_obj=db_connection()
+  mydb=db_obj["mydb"]
+  mycursor=db_obj["mycursor"]
+
+  mycursor.execute("SELECT * FROM waypoint")
+
+  myresult = mycursor.fetchall()
+
+  retorno=[]
+  for x in myresult:
+    retorno.append({"idPath":x[0], "x":x[1],"y":x[2],"z":x[3]})
+
+  return jsonify(retorno)
 
 
 @app.route("/search/classrooms/<id>", methods=["GET"])
-def searchClassrooms():
-  return jsonify({})
+def searchClassrooms(id):
+  """ 
+  Returns the classroom with the id inserted
 
+  :return: classroom object
+  :rtype: object[classroom]
+  """
+  db_obj=db_connection()
+  mydb=db_obj["mydb"]
+  mycursor=db_obj["mycursor"]
+
+  mycursor.execute("SELECT * FROM classroom WHERE id = '%s' ;" % id)  
+
+  myresult = mycursor.fetchall()
+
+  retorno=[]
+  for x in myresult:
+    retorno.append({"id":x[0], "name":x[1],"occupancy":x[2],"image":x[3],"idDepartment":x[4]})
+
+  return jsonify(retorno)
 
 @app.route("/search/departments/<id>", methods=["GET"])
-def searchDepartments():
-  return jsonify({})
+def searchDepartments(id):
+  """ 
+  Returns the department with the id inserted
+
+  :return: department object
+  :rtype: object[department] 
+  """
+
+  db_obj=db_connection()
+  mydb=db_obj["mydb"]
+  mycursor=db_obj["mycursor"]
+
+  mycursor.execute("SELECT * FROM department WHERE id = '%s' ;" % id)
+  
+  myresult = mycursor.fetchall()
+
+  retorno=[]
+  for x in myresult:
+    retorno.append({"id":x[0], "designation":x[1]})
+
+  return jsonify(retorno)
+
 
 
 # andre m.
@@ -151,7 +206,7 @@ def feedback():
 
 
 # francisco (não te esqueças que tens de receber o header com o token de autenticação)
-@app.route("/account/delete", methods=["DELETE"])
+""" @app.route("/account/delete", methods=["DELETE"])
 def accountDelete():
   return jsonify({})
 
@@ -169,7 +224,7 @@ def accountReviews():
   if request.method=="POST":
     pass
 
-  return jsonify({})
+  return jsonify({}) """
 
 
 if __name__ == "__main__":
