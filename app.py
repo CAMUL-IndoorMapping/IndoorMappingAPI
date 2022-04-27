@@ -6,6 +6,8 @@ from decouple import config
 
 app = Flask(__name__)
 
+# TESTING
+
 def db_connection():
   mydb = mysql.connector.connect(
     host=config('DB_HOST'),
