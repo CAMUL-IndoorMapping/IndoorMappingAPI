@@ -2,11 +2,12 @@ from flask import Flask, request, jsonify
 import json
 import mysql.connector
 import os
+import re
 from decouple import config
+from werkzeug.security import generate_password_hash, check_password_hash
+from flask_login import login_user, login_required, logout_user, current_user
 
 app = Flask(__name__)
-
-# TESTING
 
 def db_connection():
   mydb = mysql.connector.connect(
@@ -76,7 +77,6 @@ def getReviews():
   return jsonify(retorno)
 
 
-# vitor (não te esqueças que vais ter de receber o auth token no header de alguns requests)
 @app.route("/account/login", methods=["GET"])
 def accountLogin():
   return jsonify({})
@@ -84,7 +84,71 @@ def accountLogin():
 
 @app.route("/account/signup", methods=["POST"])
 def accountSignup():
-  return jsonify({})
+  """
+  Creates a new account.
+
+  Endpoint: /account/signup
+
+  Parameters: 
+    name: User name.
+    email: User email.
+    password: User password.
+
+  Returns: 
+          200 OK ( {"status" : "success"} )
+          400 Bad Request ( {"status" : "bad request"} )
+  """
+
+  class User():
+    def __init__(self, name, password, email, idRole):
+        self.name = name
+        self.password = password
+        self.email = email
+        self.idRole = idRole
+
+  credentials=request.get_json()
+
+  emailExists = False
+
+  db     = db_connection()
+  mydb   = db["mydb"]
+  cursor = db["mycursor"]
+
+  cursor.execute("SELECT email FROM user")
+  myresult = cursor.fetchall()
+
+  if not credentials["name"] or not credentials["email"] or not credentials["password"]:
+    return jsonify({"status":"bad request - missing parameters"})
+
+  pwdRegex   = re.compile(r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*#?&])[A-Za-z\d@$!#%*?&]{8,}$')
+  emailRegex = re.compile(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b')
+  nameRegex  = re.compile(r'[A-Za-z]{2,}')
+
+  if not nameRegex.match(credentials["name"]):
+    return jsonify({"status":"bad request - invalid name"})
+  elif not emailRegex.match(credentials["email"]):
+    return jsonify({"status":"bad request - invalid email"})
+  elif not pwdRegex.match(credentials["password"]):
+    return jsonify({"status":"bad request - invalid password"})
+  else:
+
+    for email in myresult:
+      if email[0] == credentials['email']:
+        print(email[0], "===", credentials['email'])
+        emailExists = True
+
+    if not emailExists:
+
+      encryptedPassword = generate_password_hash(credentials['password'], method='sha256')
+      cursor.execute(f"INSERT INTO user (name, password, email, idRole) VALUES('{credentials['name']}', '{encryptedPassword}', '{credentials['email']}', 1)")
+      mydb.commit()
+
+      newUser = User(name=credentials['name'], email=credentials['email'], password=encryptedPassword, idRole=1)
+      #login_user(newUser, remember=True)
+
+      return jsonify({"status":"success"})
+    else:
+      return jsonify({"status":"bad request - email already exists"})
 
 
 @app.route("/account/forgot", methods=["GET", "POST"])
@@ -99,8 +163,17 @@ def accountForgot():
 
 
 @app.route("/account/logout", methods=["PUT"])
+@login_required
 def accountLogout():
-  return jsonify({})
+  """
+  Logs the current user out.
+
+  Endpoint: /account/logout
+
+  Returns: 200 OK ( {"status" : "success"} )
+  """
+  logout_user()
+  return jsonify({"status" : "success"})
 
 
 # ancre g.
@@ -159,7 +232,7 @@ def accountDelete():
 
 
 @app.route("/account/change", methods=["PUT"])
-def accountDelete():
+def accountChange():
   return jsonify({})
 
 
