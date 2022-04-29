@@ -1,23 +1,29 @@
-from flask import Flask, request, jsonify
+from email.mime import base
+from flask import Flask, request, jsonify, send_from_directory, abort
 import json
 import mysql.connector
 import os
 from decouple import config
+import secrets
+from os.path import exists
+import base64
 
 app = Flask(__name__)
 
 def db_connection():
+
   mydb = mysql.connector.connect(
     host=config('DB_HOST'),
     user=config('DB_USER'),
     password=config('DB_PASSWORD'),
     database=config('DB_DATABASE')
   )
-  mycursor = mydb.cursor()
 
+  mycursor = mydb.cursor()
+  
   return {"mydb":mydb, "mycursor":mycursor}
 
-@app.route("/<name>")
+@app.route("/")
 def hello(name):
   obj1={"key":"value", "key2":"valye2"}
   obj3={}
@@ -64,7 +70,6 @@ def getReviews():
   mycursor=db_obj["mycursor"]
 
   mycursor.execute("SELECT user.name, review.text FROM review INNER JOIN user ON review.idUser=user.id")
-
   myresult = mycursor.fetchall()
 
   retorno=[]
@@ -131,23 +136,165 @@ def searchDepartments():
 # andre m.
 @app.route("/map/waypoint", methods=["POST"])
 def placeWaypoint():
-  return jsonify({})
+  """
+  Parameters: 
+    idPath -> id do path a que pertence o waypoint
+    x -> coordenada X no mapa
+    y -> coordenada Y no mapa
+    z -> andar do edificio
+  
+  Headers:
+    Content-Type: application/json
+    authToken: <session token>
+  """
+
+  parameters=request.get_json()
+
+  if not parameters["idPath"] or not parameters["x"] or not parameters["y"] or not parameters["z"] or not request.headers.get("authToken"):
+    return jsonify({"status":"missing parameter(s)"})
+
+  db_obj=db_connection()
+  mydb=db_obj["mydb"]
+  mycursor=db_obj["mycursor"]
+
+  mycursor.execute("SELECT user.id FROM user INNER JOIN role ON user.idRole=role.id WHERE authToken=%s AND role.name='admin'", (request.headers.get("authToken"), ))
+  myresult = mycursor.fetchall()
+
+  if len(myresult)>0:
+    mycursor.execute("INSERT INTO waypoint(idPath, x, y, z) VALUES (%s, %s, %s, %s)", (int(parameters["idPath"]), parameters["x"], parameters["y"], parameters["z"]))
+    mydb.commit()
+
+    return jsonify({"status":"success"})
+
+  return jsonify({"status":"no permission"})
+  
 
 
 @app.route("/map/path", methods=["POST"])
 def placePath():
-  return jsonify({})
+  """ 
+  Parameters:
+    beaconFrom -> id do beacon de partida
+    beaconTo -> id do beacon de chegada
+  Headers:
+    authToken: <session token>
+    Content-Type: application/json
+  """
+
+  parameters=request.get_json()
+
+  if not parameters["beaconFrom"] or not parameters["beaconTo"] or not request.headers.get("authToken"):
+    return jsonify({"status":"missing parameter(s)"})
+
+  db_obj=db_connection()
+  mydb=db_obj["mydb"]
+  mycursor=db_obj["mycursor"]
+
+  mycursor.execute("SELECT user.id FROM user INNER JOIN role ON user.idRole=role.id WHERE authToken=%s AND role.name='admin'", (request.headers.get("authToken"), ))
+  myresult = mycursor.fetchall()
+
+  if len(myresult)>0:
+    mycursor.execute("INSERT INTO path(idBeacon_From, idBeacon_To) VALUES (%s, %s)", (int(parameters["beaconFrom"]), int(parameters["beaconTo"]) ))
+    mydb.commit()
+
+    return jsonify({"status":"success"})
+
+  return jsonify({"status":"no permission"})
 
 
 @app.route("/account/feedback", methods=["GET", "POST"])
 def feedback():
+  """
+  Parameters POST: 
+    type -> text ou image ou video ou audio
+    content -> ficheiro em base64 ou texto normal. o plain text em base64 não pode ter o seguinte texto, nem nada que se assemelhe: data:image/png;base64, 
+    idUser -> id do utilizador que está a fazer o upload
+    idBeacon -> id do beacon
+  Parameters GET:
+    idUser (optional)
+  Headers:
+    authToken: <session token>
+    Content-Type: application/json
+  
+  NOTA: PARA ACEDER AOS UPLOADS, USAR O ENDPOINT: /uploads/nomedoficheiro.ext 
+  """
+
+  db_obj=db_connection()
+  mydb=db_obj["mydb"]
+  mycursor=db_obj["mycursor"]
+
   if request.method=="GET":
-    pass
+    sql_query="SELECT id, idBeacon, content, idUser, type FROM note"
+    params=()
+
+    if request.args.get("idUser"):
+      sql_query+=" WHERE idUser=%s"
+      params=(int(request.args.get("idUser")),)
+
+    print(sql_query)
+    mycursor.execute(sql_query, params)
+    myresult = mycursor.fetchall()
+
+    notes=[]
+    for x in myresult:
+      notes.append({"id":x[0], "idBeacon":x[1], "content":x[2], "idUser":x[3], "type":x[4]})
+
+    return jsonify({"feedback":notes})
 
   if request.method=="POST":
-    pass
+    parameters=request.get_json()
 
-  return jsonify({})
+    # verificar se os parametros de POST são válidos
+    if not parameters["type"] or not parameters["content"] or not parameters["idUser"] or not parameters["idBeacon"] or not request.headers.get("authToken"):
+      return jsonify({"status":"missing parameter(s)"})
+    
+    mycursor.execute("SELECT user.id FROM user INNER JOIN role ON user.idRole=role.id WHERE authToken=%s AND user.id=%s AND role.name='admin'", (request.headers.get("authToken"), int(parameters["idUser"]) ))
+    myresult = mycursor.fetchall()
+
+    if len(myresult)>0:
+      fileFormats={"image":"jpg", "audio":"wav", "video":"mp4"}
+
+      # a variável content vai assumir valores de texto normal ou de caminhos para o ficheiro
+      content=parameters["content"]
+
+      # verificar se está a ser feito upload de um ficheiro ou de texto livre
+      if parameters["type"]!="text":
+
+        # definir um nome para o ficheiro novo
+        fileName="uploads/"+secrets.token_hex(8) + "." + fileFormats[parameters["type"]]
+
+        # definir um nome novo para o ficheiro, no caso desse nome já existir
+        while exists(fileName):
+          fileName="uploads/"+secrets.token_hex(8) + "." + fileFormats[parameters["type"]]
+
+        # converter o ficheiro em base64 para binário e guarda-lo no sistema de ficheiros
+        fileBin = base64.b64decode(parameters["content"] + '==')
+
+        f=open(fileName, "wb")
+        f.write(fileBin)
+
+        content=fileName
+      else:
+        content=content[:149]
+
+      # guardar na base de dados
+      mycursor.execute("INSERT INTO note(type, content, idUser, idBeacon) VALUES (%s, %s, %s, %s)", (parameters["type"], content, int(parameters["idUser"]), int(parameters["idBeacon"]) ))
+      mydb.commit()
+
+      return jsonify({"status":"success"})
+
+  return jsonify({"status":"no permission"})
+
+
+@app.route('/uploads/<filename>',methods = ['GET'])
+def get_files(filename):
+  """
+    endpoint: /uploads/<nome do ficheiro>
+  """
+  try:
+    return send_from_directory("uploads/", filename)
+  except FileNotFoundError:
+    abort(404)
 
 
 # francisco (não te esqueças que tens de receber o header com o token de autenticação)
@@ -157,7 +304,7 @@ def accountDelete():
 
 
 @app.route("/account/change", methods=["PUT"])
-def accountDelete():
+def accountChange():
   return jsonify({})
 
 
@@ -173,4 +320,4 @@ def accountReviews():
 
 
 if __name__ == "__main__":
-  app.run()
+  app.run(debug=True)
