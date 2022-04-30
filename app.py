@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, session
 import json
 import mysql.connector
 import os
@@ -8,6 +8,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import login_user, login_required, logout_user, current_user
 
 app = Flask(__name__)
+app.secret_key = "TOP_SECRET"
 
 def db_connection():
   mydb = mysql.connector.connect(
@@ -79,7 +80,51 @@ def getReviews():
 
 @app.route("/account/login", methods=["GET"])
 def accountLogin():
-  return jsonify({})
+  """
+  Logs the user in.
+
+  Endpoint: /account/login
+
+  Parameters: 
+    email: User email.
+    password: User password.
+
+  Returns: 
+          200 OK ( {"status" : "success"} )
+          400 Bad Request ( {"status" : "bad request"} )
+          401 Unauthorized ( {"status" : "unauthorized"} )
+  """
+
+  # Get the JSON containing the user input
+  credentials=request.get_json()
+
+  # Database connection
+  db     = db_connection()
+  mydb   = db["mydb"]
+  cursor = db["mycursor"]
+
+  # User input validation
+  if not credentials["email"] or not credentials["password"]:
+    return jsonify({"status":"unauthorized - invalid credentials"})
+
+  # Check if the input email exists (password verification is done in another step)
+  cursor.execute(f"SELECT email, password FROM user WHERE email='{credentials['email']}'")
+  myresult = cursor.fetchall()
+
+  # If the email doesn't exist, we don't even bother to check if the password is correct
+  if len(myresult) < 1:
+    return jsonify({"status" : "unauthorized - user does not exist"})
+  else:
+    # If it exists, we then check if the password is correct
+    # Note: The encrypted password is being returned as "bytearray(b'')", and we want what is between the '', which is what this regex returns (this could be improved)
+    passwordToCheck = re.search(r'\'(.*?)\'',str(myresult[0][1])).group(1)
+    if not check_password_hash(passwordToCheck, credentials["password"]):
+      return jsonify({"status" : "unauthorized - invalid password"})
+    else:
+      # Log user in #TODO
+      session["loggedin"] = True
+      session["email"] = myresult[0][0]
+      return jsonify({"status" : "success"})
 
 
 @app.route("/account/signup", methods=["POST"])
@@ -99,27 +144,25 @@ def accountSignup():
           400 Bad Request ( {"status" : "bad request"} )
   """
 
-  class User():
-    def __init__(self, name, password, email, idRole):
-        self.name = name
-        self.password = password
-        self.email = email
-        self.idRole = idRole
-
+  # Get the JSON containing the user input
   credentials=request.get_json()
 
   emailExists = False
 
+  # Database connection
   db     = db_connection()
   mydb   = db["mydb"]
   cursor = db["mycursor"]
 
+  # SQL Query to obtain all emails
   cursor.execute("SELECT email FROM user")
   myresult = cursor.fetchall()
 
+  # User input validation
   if not credentials["name"] or not credentials["email"] or not credentials["password"]:
     return jsonify({"status":"bad request - missing parameters"})
 
+  # Password must contain 8 characters, 1 capital, 1 lower case, 1 number and 1 special symbol (At least)
   pwdRegex   = re.compile(r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*#?&])[A-Za-z\d@$!#%*?&]{8,}$')
   emailRegex = re.compile(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b')
   nameRegex  = re.compile(r'[A-Za-z]{2,}')
@@ -132,6 +175,7 @@ def accountSignup():
     return jsonify({"status":"bad request - invalid password"})
   else:
 
+    # Verify if email already exists
     for email in myresult:
       if email[0] == credentials['email']:
         print(email[0], "===", credentials['email'])
@@ -139,12 +183,16 @@ def accountSignup():
 
     if not emailExists:
 
+      # Encrypt the password using sha256
       encryptedPassword = generate_password_hash(credentials['password'], method='sha256')
+
+      # Register the new user into the database
       cursor.execute(f"INSERT INTO user (name, password, email, idRole) VALUES('{credentials['name']}', '{encryptedPassword}', '{credentials['email']}', 1)")
       mydb.commit()
 
-      newUser = User(name=credentials['name'], email=credentials['email'], password=encryptedPassword, idRole=1)
-      #login_user(newUser, remember=True)
+      # Log the newly created user in
+      session["loggedin"] = True
+      session["email"] = credentials['email']
 
       return jsonify({"status":"success"})
     else:
