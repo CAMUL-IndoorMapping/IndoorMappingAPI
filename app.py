@@ -94,37 +94,40 @@ def accountLogin():
           400 Bad Request ( {"status" : "bad request"} )
           401 Unauthorized ( {"status" : "unauthorized"} )
   """
+  
+  if "loggedin" not in session:
+    # Get the JSON containing the user input
+    credentials=request.get_json()
 
-  # Get the JSON containing the user input
-  credentials=request.get_json()
+    # Database connection
+    db     = db_connection()
+    mydb   = db["mydb"]
+    cursor = db["mycursor"]
 
-  # Database connection
-  db     = db_connection()
-  mydb   = db["mydb"]
-  cursor = db["mycursor"]
+    # User input validation
+    if not credentials["email"] or not credentials["password"]:
+      return jsonify({"status":"unauthorized - invalid credentials"})
 
-  # User input validation
-  if not credentials["email"] or not credentials["password"]:
-    return jsonify({"status":"unauthorized - invalid credentials"})
+    # Check if the input email exists (password verification is done in another step)
+    cursor.execute(f"SELECT email, password FROM user WHERE email='{credentials['email']}'")
+    myresult = cursor.fetchall()
 
-  # Check if the input email exists (password verification is done in another step)
-  cursor.execute(f"SELECT email, password FROM user WHERE email='{credentials['email']}'")
-  myresult = cursor.fetchall()
-
-  # If the email doesn't exist, we don't even bother to check if the password is correct
-  if len(myresult) < 1:
-    return jsonify({"status" : "unauthorized - user does not exist"})
-  else:
-    # If it exists, we then check if the password is correct
-    # Note: The encrypted password is being returned as "bytearray(b'')", and we want what is between the '', which is what this regex returns (this could be improved)
-    passwordToCheck = re.search(r'\'(.*?)\'',str(myresult[0][1])).group(1)
-    if not check_password_hash(passwordToCheck, credentials["password"]):
-      return jsonify({"status" : "unauthorized - invalid password"})
+    # If the email doesn't exist, we don't even bother to check if the password is correct
+    if len(myresult) < 1:
+      return jsonify({"status" : "unauthorized - user does not exist"})
     else:
-      # Log user in #TODO
-      session["loggedin"] = True
-      session["email"] = myresult[0][0]
-      return jsonify({"status" : "success"})
+      # If it exists, we then check if the password is correct
+      # Note: The encrypted password is being returned as "bytearray(b'')", and we want what is between the '', which is what this regex returns (this could be improved)
+      passwordToCheck = re.search(r'\'(.*?)\'',str(myresult[0][1])).group(1)
+      if not check_password_hash(passwordToCheck, credentials["password"]):
+        return jsonify({"status" : "unauthorized - invalid password"})
+      else:
+        # Log user in
+        session["loggedin"] = True
+        session["email"] = myresult[0][0]
+        return jsonify({"status" : "success"})
+  else:
+    return jsonify({"status" : "unauthorized - a user is already logged in"})
 
 
 @app.route("/account/signup", methods=["POST"])
@@ -211,7 +214,6 @@ def accountForgot():
 
 
 @app.route("/account/logout", methods=["PUT"])
-@login_required
 def accountLogout():
   """
   Logs the current user out.
@@ -219,9 +221,17 @@ def accountLogout():
   Endpoint: /account/logout
 
   Returns: 200 OK ( {"status" : "success"} )
+           401 Unauthorized ( {"status" : "unauthorized"} )
   """
-  logout_user()
-  return jsonify({"status" : "success"})
+  
+  # Checks if the user is logged in
+  if "loggedin" in session:
+    # Deletes the session cookie
+    session.pop('loggedin', None)
+    session.pop('email', None)
+    return jsonify({"status" : "success"})
+  else:
+    return jsonify({"status" : "unauthorized - no logged in user"})
 
 
 # ancre g.
