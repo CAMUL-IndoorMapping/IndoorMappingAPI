@@ -6,9 +6,18 @@ import re
 from decouple import config
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import login_user, login_required, logout_user, current_user
+from flask_mail import Message, Mail
 
 app = Flask(__name__)
 app.secret_key = "TOP_SECRET"
+
+# Email configurations
+app.config['MAIL_SERVER'] = 'smtp.gmail.com'
+app.config['MAIL_PORT'] = 587
+app.config['MAIL_USE_TLS'] = True
+app.config['MAIL_USERNAME'] = 'camulisep2022@gmail.com'
+app.config['MAIL_PASSWORD'] = config('EMAIL_PASS')
+mail = Mail(app)
 
 def db_connection():
   mydb = mysql.connector.connect(
@@ -198,13 +207,64 @@ def accountSignup():
 
 @app.route("/account/forgot", methods=["GET", "POST"])
 def accountForgot():
+  """
+  Allows user to recover their lost password. Allows GET and POST methods.
+    GET -> Receives an email to which a message will be sent with a link to insert the new password
+    POST -> Allows the user to insert the new password, updating the database
+
+  Endpoint: /account/forgot
+
+  Parameters: 
+    GET -> email: User email.
+    POST -> email: User email.
+            password: User's new password.
+
+  Returns: 
+          200 OK ( {"status" : "success"} )
+          400 Bad Request ( {"status" : "bad request"} )
+  """
+
   if request.method=="GET":
-    pass
+    # Get the JSON containing the user input
+    credentials=request.get_json()
+
+    # User input validation
+    if not credentials["email"]:
+      return jsonify({"status":"bad request - missing parameters"})
+  
+    # Database connection
+    db     = db_connection()
+    mydb   = db["mydb"]
+    cursor = db["mycursor"]
+
+    # Check if email exists
+    cursor.execute(f"SELECT email FROM user WHERE email='{credentials['email']}'")
+    results = cursor.fetchall()
+
+    if len(results)<1:
+      return jsonify({"status":"bad request - email does not exist"})
+
+    # Send email with link to recover password
+    email = str(credentials['email'])
+    
+
+    def send_reset_email(email):
+
+      msg = Message('Password Reset Request', sender=('ISEP Indoor Mapping', "test@gmail.com"), recipients=[email])
+
+      #{url_for('reset_token', token=token, _external=True)}
+      msg.body = f'''To reset your password, visit the following link:
+                  
+                  If you did not make this request then simply ignore this email and no changes will be made.
+                  '''
+      
+      mail.send(msg)
+
+    send_reset_email(email)
+    return jsonify({"status": "success"})
 
   if request.method=="POST":
-    pass
-
-  return jsonify({})
+    return jsonify({})
 
 
 @app.route("/account/logout", methods=["PUT"])
