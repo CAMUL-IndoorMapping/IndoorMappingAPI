@@ -150,20 +150,18 @@ def accountSignup():
   # Get the JSON containing the user input
   credentials=request.get_json()
 
-  emailExists = False
-
   # Database connection
   db     = db_connection()
   mydb   = db["mydb"]
   cursor = db["mycursor"]
 
-  # SQL Query to obtain all emails
-  cursor.execute("SELECT email FROM user")
-  myresult = cursor.fetchall()
-
   # User input validation
   if not credentials["name"] or not credentials["email"] or not credentials["password"]:
     return jsonify({"status":"bad request - missing parameters"})
+
+  # SQL Query to obtain all emails
+  cursor.execute(f"SELECT email FROM user WHERE email='{credentials['email']}'")
+  myresult = cursor.fetchall()
 
   # Password must contain 8 characters, 1 capital, 1 lower case, 1 number and 1 special symbol (At least)
   pwdRegex   = re.compile(r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*#?&])[A-Za-z\d@$!#%*?&]{8,}$')
@@ -179,12 +177,9 @@ def accountSignup():
   else:
 
     # Verify if email already exists
-    for email in myresult:
-      if email[0] == credentials['email']:
-        print(email[0], "===", credentials['email'])
-        emailExists = True
-
-    if not emailExists:
+    if len(myresult)>0:
+      return jsonify({"status":"bad request - email already exists"})
+    else:
 
       # Encrypt the password using sha256
       encryptedPassword = generate_password_hash(credentials['password'], method='sha256')
@@ -198,8 +193,7 @@ def accountSignup():
       session["email"] = credentials['email']
 
       return jsonify({"status":"success"})
-    else:
-      return jsonify({"status":"bad request - email already exists"})
+      
 
 
 @app.route("/account/forgot", methods=["GET", "POST"])
