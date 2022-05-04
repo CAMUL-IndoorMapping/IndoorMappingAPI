@@ -116,7 +116,7 @@ def searchBeacon(id):
   mycursor=db_obj["mycursor"]
 
   #Execute search cammand
-  mycursor.execute("SELECT * FROM beacon WHERE id=%s", id)
+  mycursor.execute(f"SELECT * FROM beacon WHERE id={id}")
 
   #Save result 
   myresult=mycursor.fetchall()
@@ -126,9 +126,9 @@ def searchBeacon(id):
   #Beacon array
   beacons=[]
   for x in myresult:
-    beacons.append({"id":x[0], "idDevice":x[1], "IdClassroom":x[2], "x":x[3], "y":x[4], "z":x[5]})
+    beacons.append({"idDevice":x[1], "IdClassroom":x[2], "x":x[3], "y":x[4], "z":x[5]})
 
-  return jsonify({"feedback":beacons})
+  return jsonify({"feedback":beacons[0]})
 
 
 @app.route("/map/beacons", methods=["POST"])
