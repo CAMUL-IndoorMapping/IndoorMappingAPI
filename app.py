@@ -7,9 +7,10 @@ from decouple import config
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import login_user, login_required, logout_user, current_user
 from flask_mail import Message, Mail
+from itsdangerous import URLSafeTimedSerializer
 
 app = Flask(__name__)
-app.secret_key = "TOP_SECRET"
+app.secret_key = config('APP_SECRET_KEY')
 
 # Email configurations
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
@@ -18,6 +19,8 @@ app.config['MAIL_USE_TLS'] = True
 app.config['MAIL_USERNAME'] = 'camulisep2022@gmail.com'
 app.config['MAIL_PASSWORD'] = config('EMAIL_PASS')
 mail = Mail(app)
+
+tokenSerial = URLSafeTimedSerializer(app.config['SECRET_KEY'])
 
 def db_connection():
   mydb = mysql.connector.connect(
@@ -187,7 +190,7 @@ def accountSignup():
 
     # Verify if email already exists
     if len(myresult)>0:
-      return jsonify({"status":"bad request - email already exists"})
+      return jsonify({"status":f"bad request - email already exists ({credentials['email']})"})
     else:
 
       # Encrypt the password using sha256
@@ -201,18 +204,19 @@ def accountSignup():
       session["loggedin"] = True
       session["email"] = credentials['email']
 
-      return jsonify({"status":"success"})
-      
+      return jsonify({"status":"account created successfully"})
 
 
-@app.route("/account/forgot", methods=["GET", "POST"])
-def accountForgot():
+@app.route("/account/forgot", methods=["GET"])
+@app.route("/account/forgot/<resetToken>", methods=["POST"])
+def accountForgot(resetToken=None):
   """
   Allows user to recover their lost password. Allows GET and POST methods.
     GET -> Receives an email to which a message will be sent with a link to insert the new password
     POST -> Allows the user to insert the new password, updating the database
 
-  Endpoint: /account/forgot
+  Endpoints: /account/forgot
+             /accout/forgot/<token>
 
   Parameters: 
     GET -> email: User email.
@@ -246,25 +250,50 @@ def accountForgot():
 
     # Send email with link to recover password
     email = str(credentials['email'])
-    
+
+    token = tokenSerial.dumps(email, salt='reset_password')
 
     def send_reset_email(email):
 
       msg = Message('Password Reset Request', sender=('ISEP Indoor Mapping', "test@gmail.com"), recipients=[email])
 
+      #TODO Fix the url that is sent
+      url = f"http://127.0.0.1:5000/account/forgot/{token}"
       #{url_for('reset_token', token=token, _external=True)}
-      msg.body = f'''To reset your password, visit the following link:
+      msg.body = f'''To reset your password, visit the following link:\n{url}\nIf you did not make this request then simply ignore this email and no changes will be made.'''
                   
-                  If you did not make this request then simply ignore this email and no changes will be made.
-                  '''
-      
       mail.send(msg)
 
     send_reset_email(email)
-    return jsonify({"status": "success"})
+    return jsonify({"status": f"success - sent email to {email}"})
 
   if request.method=="POST":
-    return jsonify({})
+
+    # Get the JSON containing the user input
+    credentials=request.get_json()
+
+    # User input validation
+    if resetToken == None:
+      return jsonify({"status":f"bad request - missing token - {resetToken}"})
+
+    if not credentials["password"]:
+      return jsonify({"status":"bad request - missing parameters"})
+  
+    # Database connection
+    db     = db_connection()
+    mydb   = db["mydb"]
+    cursor = db["mycursor"]
+
+    try:
+      #TODO Make it so the token expires after 1 use
+      email = tokenSerial.loads(resetToken, salt='reset_password', max_age=3600) # Expires after 1 hour
+      encryptedPassword = generate_password_hash(credentials["password"])
+      cursor.execute(f"UPDATE user SET password = '{encryptedPassword}' WHERE email='{email}'")
+      mydb.commit()
+    except:
+      return jsonify({"status":f"bad request - token expired {resetToken}"})
+
+    return jsonify({"status":f"success - {email} password updated"})
 
 
 @app.route("/account/logout", methods=["PUT"])
