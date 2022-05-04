@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, session
+from flask import Flask, request, jsonify, session, url_for
 import json
 import mysql.connector
 import os
@@ -257,9 +257,8 @@ def accountForgot(resetToken=None):
 
       msg = Message('Password Reset Request', sender=('ISEP Indoor Mapping', "test@gmail.com"), recipients=[email])
 
-      #TODO Fix the url that is sent
-      url = f"http://127.0.0.1:5000/account/forgot/{token}"
-      #{url_for('reset_token', token=token, _external=True)}
+      #url = f"http://127.0.0.1:5000/account/forgot/{token}"
+      url = url_for('accountForgot', resetToken=token, _external=True)
       msg.body = f'''To reset your password, visit the following link:\n{url}\nIf you did not make this request then simply ignore this email and no changes will be made.'''
                   
       mail.send(msg)
@@ -285,7 +284,6 @@ def accountForgot(resetToken=None):
     cursor = db["mycursor"]
 
     try:
-      #TODO Make it so the token expires after 1 use
       email = tokenSerial.loads(resetToken, salt='reset_password', max_age=3600) # Expires after 1 hour
       encryptedPassword = generate_password_hash(credentials["password"])
       cursor.execute(f"UPDATE user SET password = '{encryptedPassword}' WHERE email='{email}'")
