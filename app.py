@@ -7,17 +7,22 @@ from decouple import config
 app = Flask(__name__)
 
 def db_connection():
+
   mydb = mysql.connector.connect(
     host=config('DB_HOST'),
     user=config('DB_USER'),
     password=config('DB_PASSWORD'),
     database=config('DB_DATABASE')
   )
+
   mycursor = mydb.cursor()
 
   return {"mydb":mydb, "mycursor":mycursor}
 
-@app.route("/<name>")
+#Message #backend
+
+
+"""@app.route("/<name>")
 def hello(name):
   obj1={"key":"value", "key2":"valye2"}
   obj3={}
@@ -71,7 +76,7 @@ def getReviews():
   for x in myresult:
     retorno.append({"userName":x[0], "review":x[1]})
 
-  return jsonify(retorno)
+  return jsonify(retorno)"""
 
 
 # vitor (não te esqueças que vais ter de receber o auth token no header de alguns requests)
@@ -103,8 +108,27 @@ def accountLogout():
 
 # ancre g.
 @app.route("/search/beacons/<id>", methods=["GET"])
-def searchBeacon():
-  return jsonify({})
+def searchBeacon(id):
+
+  #Connect to database
+  db_obj=db_connection()
+  mydb=db_obj["mydb"]
+  mycursor=db_obj["mycursor"]
+
+  #Execute search cammand
+  mycursor.execute("SELECT * FROM beacon WHERE id=%s", id)
+
+  #Save result 
+  myresult=mycursor.fetchall()
+
+  print(id)
+
+  #Beacon array
+  beacons=[]
+  for x in myresult:
+    beacons.append({"id":x[0], "idDevice":x[1], "IdClassroom":x[2], "x":x[3], "y":x[4], "z":x[5]})
+
+  return jsonify({"feedback":beacons})
 
 
 @app.route("/map/beacons", methods=["POST"])
@@ -157,7 +181,7 @@ def accountDelete():
 
 
 @app.route("/account/change", methods=["PUT"])
-def accountDelete():
+def accountChange():
   return jsonify({})
 
 
