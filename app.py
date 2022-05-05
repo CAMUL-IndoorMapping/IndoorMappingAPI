@@ -121,7 +121,8 @@ def accountLogin():
       return jsonify({"status":"unauthorized - invalid credentials"})
 
     # Check if the input email exists (password verification is done in another step)
-    cursor.execute(f"SELECT email, password FROM user WHERE email='{credentials['email']}'")
+    queryString = "SELECT email, password FROM user WHERE email=%s"  
+    cursor.execute(queryString, (credentials['email'],))
     myresult = cursor.fetchall()
 
     # If the email doesn't exist, we don't even bother to check if the password is correct
@@ -172,7 +173,8 @@ def accountSignup():
     return jsonify({"status":"bad request - missing parameters"})
 
   # SQL Query to obtain all emails
-  cursor.execute(f"SELECT email FROM user WHERE email='{credentials['email']}'")
+  queryString = "SELECT email FROM user WHERE email=%s"  
+  cursor.execute(queryString, (credentials['email'],))
   myresult = cursor.fetchall()
 
   # Password must contain 8 characters, 1 capital, 1 lower case, 1 number and 1 special symbol (At least)
@@ -197,7 +199,8 @@ def accountSignup():
       encryptedPassword = generate_password_hash(credentials['password'], method='sha256')
 
       # Register the new user into the database
-      cursor.execute(f"INSERT INTO user (name, password, email, idRole) VALUES('{credentials['name']}', '{encryptedPassword}', '{credentials['email']}', 1)")
+      queryString = "INSERT INTO user (name, password, email, idRole) VALUES(%s, %s, %s, 1)"
+      cursor.execute(queryString, (credentials['name'], encryptedPassword, credentials['email'],))
       mydb.commit()
 
       # Log the newly created user in
@@ -242,7 +245,8 @@ def accountForgot(resetToken=None):
     cursor = db["mycursor"]
 
     # Check if email exists
-    cursor.execute(f"SELECT email FROM user WHERE email='{credentials['email']}'")
+    queryString = "SELECT email FROM user WHERE email=%s"  
+    cursor.execute(queryString, (credentials['email'],))
     results = cursor.fetchall()
 
     if len(results)<1:
@@ -286,7 +290,9 @@ def accountForgot(resetToken=None):
     try:
       email = tokenSerial.loads(resetToken, salt='reset_password', max_age=3600) # Expires after 1 hour
       encryptedPassword = generate_password_hash(credentials["password"])
-      cursor.execute(f"UPDATE user SET password = '{encryptedPassword}' WHERE email='{email}'")
+
+      queryString = "UPDATE user SET password =%s WHERE email=%s"  
+      cursor.execute(queryString, (encryptedPassword, credentials['email'],))
       mydb.commit()
     except:
       return jsonify({"status":f"bad request - token expired {resetToken}"})
