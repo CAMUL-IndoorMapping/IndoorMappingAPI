@@ -115,8 +115,11 @@ def searchBeacon(id):
   mydb=db_obj["mydb"]
   mycursor=db_obj["mycursor"]
 
+  #Variavels
+  query_string="SELECT * FROM beacon WHERE id=%s"
+
   #Execute search cammand
-  mycursor.execute(f"SELECT * FROM beacon WHERE id={id}")
+  mycursor.execute(query_string, (id,))
 
   #Save result 
   myresult=mycursor.fetchall()
