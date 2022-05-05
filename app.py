@@ -136,6 +136,22 @@ def searchBeacon(id):
 
 @app.route("/map/beacons", methods=["POST"])
 def placeBeacon():
+
+  #Connect to database
+  db_obj=db_connection()
+  mydb=db_obj["mydb"]
+  mycursor=db_obj["mycursor"]
+
+  #Get data from request
+  parameters=request.get_json()
+
+  #MySQL cammand
+  query_string="INSERT INTO beacon (idDevice, IdClassroom, x, y, z) VALUES (%s, %s, %s, %s, %s)"
+  
+  #Execute insert cammand
+  mycursor.execute(query_string, (parameters["idDevice"], int(parameters["IdClassroom"]), parameters["x"], parameters["y"], parameters["z"]))
+
+  print(parameters)
   return jsonify({})
 
 
