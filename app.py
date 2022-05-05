@@ -124,7 +124,9 @@ def searchBeacon(id):
   #Save result 
   myresult=mycursor.fetchall()
 
-  print(id)
+  #Cheaking if it exists
+  if len(myresult) > 0:
+    return jsonify({"status":"Not Found - This beacon was not found"})
 
   #Beacon array
   beacons=[]
@@ -145,14 +147,44 @@ def placeBeacon():
   #Get data from request
   parameters=request.get_json()
 
+  #Check if parameters where inputed correctly
+  if not parameters["idDevice"] or not parameters["IdClassroom"] or not parameters["x"] or not parameters["y"] or not parameters["z"]:
+    return jsonify({"status":"bad request - missing parameters"})
+  
+
   #MySQL cammand
   query_string="INSERT INTO beacon (idDevice, IdClassroom, x, y, z) VALUES (%s, %s, %s, %s, %s)"
+  """search_idclassroom_query="SELECT IdClassroom FROM beacon WHERE IdClassroom=%s"
+  check_iddevice_query="SELECT idDevice FROM beacon"""
+  query_getData="SELECT * FROM beacon"
+
+  #Get Data
+  mycursor.execute(query_getData)
+  myresult=mycursor.fetchall()
+
+  #Check if beacon exists
+  for y in myresult:
+    print(y)
+    if y[1] == parameters["idDevice"]:
+      return jsonify({"status":"bad request - This device already is being use"})
+    elif y[3] == parameters["x"] and y[4] == parameters["y"] and y[5] == parameters["z"]:
+      return jsonify({"status":f"bad request - A beacon with these coordinates x:({parameters['x']}), y:({parameters['y']}) and z:({parameters['z']}) already exists"})
   
   #Execute insert cammand
   mycursor.execute(query_string, (parameters["idDevice"], int(parameters["IdClassroom"]), parameters["x"], parameters["y"], parameters["z"]))
+  mydb.commit()
 
-  print(parameters)
-  return jsonify({})
+  #Check if the new beacon was added
+  query_confirm_id="SELECT id FROM beacon WHERE idDevice=%s AND IdClassroom=%s"
+  mycursor.execute(query_confirm_id, (parameters["idDevice"], int(parameters["IdClassroom"])))
+  mysearchresult=mycursor.fetchall()
+
+  #Check if it was found
+  if len(mysearchresult) < 1:
+    return jsonify({"status":"Error - Beacon wasn't haded"})
+  
+  
+  return jsonify({"feedback": mysearchresult[0]})
 
 
 # daniel
