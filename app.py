@@ -341,10 +341,15 @@ def placeBeacon():
 @app.route("/search/waypoints", methods=["GET"])
 def searchWaypoint():
   """ 
-  Returns all waypoints
+   
+  Returns all waypoints.
 
-  :return: The list of waypoints
-  :rtype: list[waypoint]
+  Endpoint: /search/waypoints
+
+  Returns: 
+          200 OK ( {"status" : "success"} )
+          400 Bad Request ( {"status" : "bad request"} )
+          401 Unauthorized ( {"status" : "unauthorized"} )
   """
   db_obj=db_connection()
   mydb=db_obj["mydb"]
@@ -364,11 +369,17 @@ def searchWaypoint():
 @app.route("/search/classrooms/<id>", methods=["GET"])
 def searchClassrooms(id):
   """ 
-  Returns the classroom with the id inserted
+   
+  Returns the classroom identified by the ID inserted.
 
-  :return: classroom object
-  :rtype: object[classroom]
+  Endpoint: /search/classrooms/<id>
+
+  Returns: 
+          200 OK ( {"status" : "success"} )
+          400 Bad Request ( {"status" : "bad request"} )
+          401 Unauthorized ( {"status" : "unauthorized"} )
   """
+  
   db_obj=db_connection()
   mydb=db_obj["mydb"]
   mycursor=db_obj["mycursor"]
@@ -386,10 +397,14 @@ def searchClassrooms(id):
 @app.route("/search/departments/<id>", methods=["GET"])
 def searchDepartments(id):
   """ 
-  Returns the department with the id inserted
+  Returns the departments identified by the ID inserted.
 
-  :return: department object
-  :rtype: object[department] 
+  Endpoint: /search/departments/<id>
+
+  Returns: 
+          200 OK ( {"status" : "success"} )
+          400 Bad Request ( {"status" : "bad request"} )
+          401 Unauthorized ( {"status" : "unauthorized"} )
   """
 
   db_obj=db_connection()
