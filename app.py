@@ -36,10 +36,16 @@ def db_connection():
   )
 
   mycursor = mydb.cursor()
+
+
+  mycursor = mydb.cursor()
   
   return {"mydb":mydb, "mycursor":mycursor}
 
-@app.route("/")
+#Message #backend
+
+
+"""@app.route("/<name>")
 def hello(name):
   obj1={"key":"value", "key2":"valye2"}
   obj3={}
@@ -92,7 +98,7 @@ def getReviews():
   for x in myresult:
     retorno.append({"userName":x[0], "review":x[1]})
 
-  return jsonify(retorno)
+  return jsonify(retorno)"""
 
 
 @app.route("/account/login", methods=["GET"])
@@ -328,13 +334,83 @@ def accountLogout():
 
 # ancre g.
 @app.route("/search/beacons/<id>", methods=["GET"])
-def searchBeacon():
-  return jsonify({})
+def searchBeacon(id):
+
+  #Connect to database
+  db_obj=db_connection()
+  mydb=db_obj["mydb"]
+  mycursor=db_obj["mycursor"]
+
+  #Variavels
+  query_string="SELECT * FROM beacon WHERE id=%s"
+
+  #Execute search cammand
+  mycursor.execute(query_string, (id,))
+
+  #Save result 
+  myresult=mycursor.fetchall()
+
+  #Cheaking if it exists
+  if len(myresult) > 0:
+    return jsonify({"status":"Not Found - This beacon was not found"})
+
+  #Beacon array
+  beacons=[]
+  for x in myresult:
+    beacons.append({"idDevice":x[1], "IdClassroom":x[2], "x":x[3], "y":x[4], "z":x[5]})
+
+  return jsonify({"feedback":beacons[0]})
 
 
 @app.route("/map/beacons", methods=["POST"])
 def placeBeacon():
-  return jsonify({})
+
+  #Connect to database
+  db_obj=db_connection()
+  mydb=db_obj["mydb"]
+  mycursor=db_obj["mycursor"]
+
+  #Get data from request
+  parameters=request.get_json()
+
+  #Check if parameters where inputed correctly
+  if not parameters["idDevice"] or not parameters["IdClassroom"] or not parameters["x"] or not parameters["y"] or not parameters["z"]:
+    return jsonify({"status":"bad request - missing parameters"})
+  
+
+  #MySQL cammand
+  query_string="INSERT INTO beacon (idDevice, IdClassroom, x, y, z) VALUES (%s, %s, %s, %s, %s)"
+  """search_idclassroom_query="SELECT IdClassroom FROM beacon WHERE IdClassroom=%s"
+  check_iddevice_query="SELECT idDevice FROM beacon"""
+  query_getData="SELECT * FROM beacon"
+
+  #Get Data
+  mycursor.execute(query_getData)
+  myresult=mycursor.fetchall()
+
+  #Check if beacon exists
+  for y in myresult:
+    print(y)
+    if y[1] == parameters["idDevice"]:
+      return jsonify({"status":"bad request - This device already is being use"})
+    elif y[3] == parameters["x"] and y[4] == parameters["y"] and y[5] == parameters["z"]:
+      return jsonify({"status":f"bad request - A beacon with these coordinates x:({parameters['x']}), y:({parameters['y']}) and z:({parameters['z']}) already exists"})
+  
+  #Execute insert cammand
+  mycursor.execute(query_string, (parameters["idDevice"], int(parameters["IdClassroom"]), parameters["x"], parameters["y"], parameters["z"]))
+  mydb.commit()
+
+  #Check if the new beacon was added
+  query_confirm_id="SELECT id FROM beacon WHERE idDevice=%s AND IdClassroom=%s"
+  mycursor.execute(query_confirm_id, (parameters["idDevice"], int(parameters["IdClassroom"])))
+  mysearchresult=mycursor.fetchall()
+
+  #Check if it was found
+  if len(mysearchresult) < 1:
+    return jsonify({"status":"Error - Beacon wasn't haded"})
+  
+  
+  return jsonify({"feedback": mysearchresult[0]})
 
 
 # daniel
