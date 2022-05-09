@@ -23,11 +23,12 @@ def db_connection():
     database=config('DB_DATABASE')
   )
 
+  
   mycursor = mydb.cursor()
   
   return {"mydb":mydb, "mycursor":mycursor}
 
-@app.route("/")
+"""@app.route("/name")
 def hello(name):
   obj1={"key":"value", "key2":"valye2"}
   obj3={}
@@ -80,7 +81,7 @@ def getReviews():
   for x in myresult:
     retorno.append({"userName":x[0], "review":x[1]})
 
-  return jsonify(retorno)
+  return jsonify(retorno)"""
 
 
 # vitor (não te esqueças que vais ter de receber o auth token no header de alguns requests)
