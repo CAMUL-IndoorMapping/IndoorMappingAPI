@@ -351,7 +351,7 @@ def searchBeacon(id):
   myresult=mycursor.fetchall()
 
   #Cheaking if it exists
-  if len(myresult) > 0:
+  if len(myresult) == 0:
     return jsonify({"status":"Not Found - This beacon was not found"})
 
   #Beacon array
