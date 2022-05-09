@@ -1,4 +1,5 @@
-from flask import Flask, request, jsonify, session, url_for
+from email.mime import base
+from flask import Flask, request, jsonify, send_from_directory, abort, session, url_for
 import json
 import mysql.connector
 import os
@@ -8,6 +9,9 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import login_user, login_required, logout_user, current_user
 from flask_mail import Message, Mail
 from itsdangerous import URLSafeTimedSerializer
+import secrets
+from os.path import exists
+import base64
 
 app = Flask(__name__)
 app.secret_key = config('APP_SECRET_KEY')
