@@ -35,7 +35,6 @@ def db_connection():
     database=config('DB_DATABASE')
   )
 
-
   mycursor = mydb.cursor()
 
 
