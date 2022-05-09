@@ -35,12 +35,18 @@ def db_connection():
     database=config('DB_DATABASE')
   )
 
-  
+
+  mycursor = mydb.cursor()
+
+
   mycursor = mydb.cursor()
   
   return {"mydb":mydb, "mycursor":mycursor}
 
-"""@app.route("/name")
+#Message #backend
+
+
+"""@app.route("/<name>")
 def hello(name):
   obj1={"key":"value", "key2":"valye2"}
   obj3={}
