@@ -42,64 +42,6 @@ def db_connection():
   
   return {"mydb":mydb, "mycursor":mycursor}
 
-#Message #backend
-
-
-"""@app.route("/<name>")
-def hello(name):
-  obj1={"key":"value", "key2":"valye2"}
-  obj3={}
-  obj2={}
-
-  lista = [1,2,3,4,5]
-  lista2 = ["oal", "adeus", "byebye"]
-  lista3 = [obj1, obj2, obj3]
-  lista4 = [lista, lista2, lista3]
-
-  for x in lista:
-    print(x)
-
-  for x in lista4:
-    for y in x:
-      print(y)
-
-  lista = [x for x in range(1,6)] #list compreension
-  print(lista)
-
-  return jsonify(obj1)
-
-@app.route("/beacons/<id>")
-def beacon(id):
-  #conection to database
-  return jsonify({""})
-
-@app.route("/beacons", methods=["POST"])
-def beaconInsert():
-  nome = request.json["nome"]
-
-  print(nome)
-  #conection to database
-  return "criei o beacon " + nome
-
-@app.route("/2", methods=["POST"])
-def hello2():
-  return "Hello World 2!"
-
-@app.route("/reviews", methods=["GET"])
-def getReviews():
-  db_obj=db_connection()
-  mydb=db_obj["mydb"]
-  mycursor=db_obj["mycursor"]
-
-  mycursor.execute("SELECT user.name, review.text FROM review INNER JOIN user ON review.idUser=user.id")
-  myresult = mycursor.fetchall()
-
-  retorno=[]
-  for x in myresult:
-    retorno.append({"userName":x[0], "review":x[1]})
-
-  return jsonify(retorno)"""
-
 
 @app.route("/account/login", methods=["GET"])
 def accountLogin():
@@ -377,7 +319,6 @@ def placeBeacon():
   if not parameters["idDevice"] or not parameters["IdClassroom"] or not parameters["x"] or not parameters["y"] or not parameters["z"]:
     return jsonify({"status":"bad request - missing parameters"})
   
-
   #MySQL cammand
   query_string="INSERT INTO beacon (idDevice, IdClassroom, x, y, z) VALUES (%s, %s, %s, %s, %s)"
   """search_idclassroom_query="SELECT IdClassroom FROM beacon WHERE IdClassroom=%s"
@@ -408,7 +349,6 @@ def placeBeacon():
   #Check if it was found
   if len(mysearchresult) < 1:
     return jsonify({"status":"Error - Beacon wasn't haded"})
-  
   
   return jsonify({"feedback": mysearchresult[0]})
 
@@ -470,6 +410,7 @@ def searchClassrooms(id):
 
   return jsonify(retorno)
 
+
 @app.route("/search/departments/<id>", methods=["GET"])
 def searchDepartments(id):
   """ 
@@ -496,7 +437,6 @@ def searchDepartments(id):
     retorno.append({"id":x[0], "designation":x[1]})
 
   return jsonify(retorno)
-
 
 
 # andre m.
@@ -534,7 +474,6 @@ def placeWaypoint():
 
   return jsonify({"status":"no permission"})
   
-
 
 @app.route("/map/path", methods=["POST"])
 def placePath():
