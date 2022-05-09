@@ -151,7 +151,7 @@ def feedback():
 
 
 # francisco (não te esqueças que tens de receber o header com o token de autenticação)
-@app.route("/account/delete", methods=["DELETE"])
+"""@app.route("/account/delete", methods=["DELETE"])
 def accountDelete():
     # Content-Type: application/json
     # Parameters: 
@@ -271,7 +271,7 @@ def accountReviews():
       return jsonify({"status":"success"})
     
     return jsonify({"status":"no permission"})
-  return jsonify({})
+  return jsonify({}) """
 
 
 if __name__ == "__main__":
