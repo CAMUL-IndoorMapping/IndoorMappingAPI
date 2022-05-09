@@ -627,11 +627,9 @@ def accountDelete():
 
     if len(myresult)>0:
 
-      mycursor.execute("SELECT user.id FROM user WHERE user.name=%s AND user.password=%s", (parameters["username"], parameters["password"] ))
-      myresult = mycursor.fetchall()
-
-      if len(myresult)>0:
-        mycursor.execute("DELETE FROM user WHERE user.name=%s AND user.password=%s", (parameters["username"], parameters["password"]))
+      passwordToCheck = re.search(r'\'(.*?)\'',str(myresult[0][1])).group(1)
+      if check_password_hash(passwordToCheck, parameters["password"]):
+        mycursor.execute("DELETE FROM user WHERE user.name=%s", (parameters["username"]))
         mydb.commit()
 
         return jsonify({"status":"success"})
@@ -666,14 +664,17 @@ def accountChange():
 
     if len(myresult)>0:
 
-      mycursor.execute("SELECT user.id FROM user WHERE user.name=%s AND user.password=%s", (parameters["username"], parameters["oldPassword"] ))
-      myresult = mycursor.fetchall()
+      passwordToCheck = re.search(r'\'(.*?)\'',str(myresult[0][1])).group(1)
+      if check_password_hash(passwordToCheck, parameters["oldPassword"]):
+        pwdRegex   = re.compile(r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*#?&])[A-Za-z\d@$!#%*?&]{8,}$')
 
-      if len(myresult)>0:
-        mycursor.execute("UPDATE user SET user.password=%s WHERE user.name=%s AND user.password=%s", (parameters["newPassword"], parameters["username"], parameters["oldPassword"]))
-        mydb.commit()
+        if pwdRegex.match(parameters["oldPassword"]):
+          mycursor.execute("UPDATE user SET user.password=%s WHERE user.name=%s", (parameters["newPassword"], parameters["username"]))
+          mydb.commit()
 
-        return jsonify({"status":"success"})
+          return jsonify({"status":"success"})
+
+        return jsonify({"status":"new password is invalid"})
 
       return jsonify({"status":"wrong password"})
     
