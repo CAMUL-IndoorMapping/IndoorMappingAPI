@@ -671,7 +671,41 @@ def accountDelete():
 
 @app.route("/account/change", methods=["PUT"])
 def accountChange():
-  return jsonify({})
+  # Content-Type: application/json
+  # Parameters: 
+  #   username -> username of the account whose password is being changed
+  #   oldPassword -> old password to confirm user's auth
+  #   newPassword -> new password to be set
+  #
+  # authToken: <session token>
+
+  db_obj=db_connection()
+  mydb=db_obj["mydb"]
+  mycursor=db_obj["mycursor"]
+
+  parameters=request.get_json()
+
+  if not parameters["username"] or not parameters["oldPassword"] or not parameters["newPassword"] or not request.headers.get("authToken"):
+    return jsonify({"status":"missing parameter(s)"})
+
+  # Verify user
+  mycursor.execute("SELECT user.id FROM user WHERE authToken=%s AND user.name=%s", (request.headers.get("authToken"), parameters["username"] ))
+  myresult = mycursor.fetchall()
+
+  if len(myresult)>0:
+
+    mycursor.execute("SELECT user.id FROM user WHERE user.name=%s AND user.password=%s", (parameters["username"], parameters["oldPassword"] ))
+    myresult = mycursor.fetchall()
+
+    if len(myresult)>0:
+      mycursor.execute("UPDATE user SET user.password=%s WHERE user.name=%s AND user.password=%s", (parameters["newPassword"], parameters["username"], parameters["oldPassword"]))
+      mydb.commit()
+
+      return jsonify({"status":"success"})
+
+    return jsonify({"status":"wrong password"})
+  
+  return jsonify({"status":"no permission"})
 
 
 @app.route("/account/reviews", methods=["GET", "POST"])
