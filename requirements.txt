@@ -2,3 +2,5 @@ Flask
 twilio
 mysql.connector
 python-decouple
+flask_login
+flask_mail
