@@ -256,7 +256,6 @@ def accountReviews():
 
   if request.method=="POST":
     parameters=request.get_json()
-
     if not parameters["idUser"] or not parameters["body"] or not request.headers.get("authToken"):
       return jsonify({"status":"missing parameter(s)"})
 
