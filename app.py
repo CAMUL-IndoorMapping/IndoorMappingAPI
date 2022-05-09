@@ -758,7 +758,6 @@ def accountReviews():
 
   if request.method=="GET":
     mycursor.execute("SELECT user.name, review.text FROM review INNER JOIN user ON review.idUser=user.id")
-
     myresult = mycursor.fetchall()
 
     resultList=[]
