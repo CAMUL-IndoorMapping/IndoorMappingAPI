@@ -362,28 +362,37 @@ def beaconsOperation():
     if len(mysearchresult) < 1:
       return jsonify({"status":"Error - Beacon wasn't haded"})
     
-    return jsonify({"feedback": mysearchresult[0]})
+    return jsonify({"beaaconId": mysearchresult[0][0]})
 
 
 # daniel
 @app.route("/search/waypoints", methods=["GET"])
 def searchWaypoint():
   """ 
-   
-  Returns all waypoints.
+  
+  Returns all waypoints between 2 beacons.
 
   Endpoint: /search/waypoints
+
+  Parameters: 
+    beaconOrigin: first beacon id.
+    beaconDestination: end-point beacon id.
 
   Returns: 
           200 OK ( {"status" : "success"} )
           400 Bad Request ( {"status" : "bad request"} )
           401 Unauthorized ( {"status" : "unauthorized"} )
   """
+
+  beacons=request.get_json()
+  if not beacons["beaconOrigin"] or not beacons["beaconDestination"]:
+    return jsonify({"status" : "bad request - missing parameters"})
+
   db_obj=db_connection()
   mydb=db_obj["mydb"]
   mycursor=db_obj["mycursor"]
 
-  mycursor.execute("SELECT * FROM waypoint")
+  mycursor.execute("SELECT * FROM waypoint INNER JOIN path ON path.id=waypoint.idPath WHERE (path.idBeacon_To=%s and path.idBeacon_From=%s) OR (path.idBeacon_To=%s and path.idBeacon_From=%s)", (int(beacons["beaconOrigin"]), int(beacons["beaconDestination"]), int(beacons["beaconDestination"]), int(beacons["beaconOrigin"])))
 
   myresult = mycursor.fetchall()
 
@@ -440,16 +449,22 @@ def searchDepartments(id):
   mydb=db_obj["mydb"]
   mycursor=db_obj["mycursor"]
 
-  mycursor.execute("SELECT * FROM department WHERE id = '%s' ;" % id)
+  mycursor.execute("SELECT department.id, department.designation, classroom.id, classroom.name, classroom.occupancy, classroom.image FROM department INNER JOIN classroom ON department.id=classroom.idDepartment WHERE department.id=%s ;", (int(id),))
   
   myresult = mycursor.fetchall()
 
-  retorno=[]
+  departmentId=0
+  departmentDesignation=""
+  classrooms=[]
   for x in myresult:
-    retorno.append({"id":x[0], "designation":x[1]})
+    departmentId=x[0]
+    departmentDesignation=x[1]
+    classrooms.append({"id":x[2], "name":x[3], "occupancy":x[4], "image":x[5]})
 
-  return jsonify(retorno)
-
+  if departmentId>0:
+    return jsonify({"departmentId":departmentId, "departmentDesignation":departmentDesignation, "classrooms":classrooms})
+  else:
+    return jsonify({"status":"bad request - nothing to show"})
 
 # andre m.
 @app.route("/map/waypoint", methods=["POST"])
