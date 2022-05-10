@@ -12,6 +12,8 @@ from itsdangerous import URLSafeTimedSerializer
 import secrets
 from os.path import exists
 import base64
+import jwt
+from datetime import datetime, timedelta
 
 app = Flask(__name__)
 app.secret_key = config('APP_SECRET_KEY')
@@ -125,7 +127,7 @@ def accountLogin():
       return jsonify({"status":"unauthorized - invalid credentials"})
 
     # Check if the input email exists (password verification is done in another step)
-    queryString = "SELECT email, password FROM user WHERE email=%s"  
+    queryString = "SELECT email, password, authToken FROM user WHERE email=%s"  
     cursor.execute(queryString, (credentials['email'],))
     myresult = cursor.fetchall()
 
@@ -141,7 +143,7 @@ def accountLogin():
       else:
         # Log user in
         session["loggedin"] = True
-        session["email"] = myresult[0][0]
+        session["authToken"] = myresult[0][2]
         return jsonify({"status" : "success"})
   else:
     return jsonify({"status" : "unauthorized - a user is already logged in"})
@@ -202,14 +204,26 @@ def accountSignup():
       # Encrypt the password using sha256
       encryptedPassword = generate_password_hash(credentials['password'], method='sha256')
 
+      # Generate AuthToken
+      payload = {
+                'exp': datetime.utcnow() + timedelta(days=0, seconds=5),
+                'iat': datetime.utcnow(),
+                'sub': credentials['email']
+                }
+      authToken = jwt.encode(
+                payload,
+                config('APP_SECRET_KEY'),
+                algorithm='HS256'
+                )
+
       # Register the new user into the database
-      queryString = "INSERT INTO user (name, password, email, idRole) VALUES(%s, %s, %s, 1)"
-      cursor.execute(queryString, (credentials['name'], encryptedPassword, credentials['email'],))
+      queryString = "INSERT INTO user (name, password, email, idRole, authToken) VALUES(%s, %s, %s, 1, %s)"
+      cursor.execute(queryString, (credentials['name'], encryptedPassword, credentials['email'], authToken))
       mydb.commit()
 
       # Log the newly created user in
       session["loggedin"] = True
-      session["email"] = credentials['email']
+      session["authToken"] = authToken
 
       return jsonify({"status":"account created successfully"})
 
@@ -293,10 +307,10 @@ def accountForgot(resetToken=None):
 
     try:
       email = tokenSerial.loads(resetToken, salt='reset_password', max_age=3600) # Expires after 1 hour
-      encryptedPassword = generate_password_hash(credentials["password"])
+      encryptedPassword = generate_password_hash(credentials["password"], method='sha256')
 
-      queryString = "UPDATE user SET password =%s WHERE email=%s"  
-      cursor.execute(queryString, (encryptedPassword, credentials['email'],))
+      queryString = "UPDATE user SET password=%s WHERE email=%s"
+      cursor.execute(queryString, (encryptedPassword, email))
       mydb.commit()
     except:
       return jsonify({"status":f"bad request - token expired {resetToken}"})
@@ -319,7 +333,7 @@ def accountLogout():
   if "loggedin" in session:
     # Deletes the session cookie
     session.pop('loggedin', None)
-    session.pop('email', None)
+    session.pop('authToken', None)
     return jsonify({"status" : "success"})
   else:
     return jsonify({"status" : "unauthorized - no logged in user"})
