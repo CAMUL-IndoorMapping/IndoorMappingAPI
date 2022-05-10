@@ -663,18 +663,19 @@ def accountDelete():
       return jsonify({"status":"missing parameter(s)"})
 
     # Verify user
-    mycursor.execute("SELECT user.id FROM user WHERE authToken=%s AND user.name=%s", (request.headers.get("authToken"), parameters["username"] ))
+    mycursor.execute("SELECT user.id,user.password FROM user WHERE authToken=%s AND user.name=%s", (request.headers.get("authToken"), parameters["username"] ))
     myresult = mycursor.fetchall()
 
     if len(myresult)>0:
 
       passwordToCheck = re.search(r'\'(.*?)\'',str(myresult[0][1])).group(1)
       if check_password_hash(passwordToCheck, parameters["password"]):
-        mycursor.execute("DELETE FROM user WHERE user.name=%s", (parameters["username"]))
+        mycursor.execute("DELETE FROM user WHERE authToken=%s AND user.name=%s", (request.headers.get("authToken"), parameters["username"] ))
         mydb.commit()
 
         return jsonify({"status":"success"})
 
+      print(parameters["password"])
       return jsonify({"status":"wrong password"})
     
     return jsonify({"status":"no permission"})
@@ -700,17 +701,19 @@ def accountChange():
       return jsonify({"status":"missing parameter(s)"})
 
     # Verify user
-    mycursor.execute("SELECT user.id FROM user WHERE authToken=%s AND user.name=%s", (request.headers.get("authToken"), parameters["username"] ))
+    mycursor.execute("SELECT user.id,user.password FROM user WHERE authToken=%s AND user.name=%s", (request.headers.get("authToken"), parameters["username"] ))
     myresult = mycursor.fetchall()
 
     if len(myresult)>0:
 
       passwordToCheck = re.search(r'\'(.*?)\'',str(myresult[0][1])).group(1)
       if check_password_hash(passwordToCheck, parameters["oldPassword"]):
-        pwdRegex   = re.compile(r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*#?&])[A-Za-z\d@$!#%*?&]{8,}$')
+        pwdRegex = re.compile(r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*#?&])[A-Za-z\d@$!#%*?&]{8,}$')
 
         if pwdRegex.match(parameters["oldPassword"]):
-          mycursor.execute("UPDATE user SET user.password=%s WHERE user.name=%s", (parameters["newPassword"], parameters["username"]))
+          encryptedPassword = generate_password_hash(parameters["newPassword"], method='sha256')
+
+          mycursor.execute("UPDATE user SET user.password=%s WHERE user.name=%s", (encryptedPassword, parameters["username"]))
           mydb.commit()
 
           return jsonify({"status":"success"})
