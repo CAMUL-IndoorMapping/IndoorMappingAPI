@@ -594,7 +594,7 @@ def feedback():
     if not parameters["type"] or not parameters["content"] or not parameters["idUser"] or not parameters["idBeacon"] or not request.headers.get("authToken"):
       return jsonify({"status":"missing parameter(s)"})
     
-    mycursor.execute("SELECT user.id FROM user INNER JOIN role ON user.idRole=role.id WHERE authToken=%s AND user.id=%s AND role.name='admin'", (request.headers.get("authToken"), int(parameters["idUser"]) ))
+    mycursor.execute("SELECT user.id FROM user INNER JOIN role ON user.idRole=role.id WHERE authToken=%s AND user.id=%s", (request.headers.get("authToken"), int(parameters["idUser"]) ))
     myresult = mycursor.fetchall()
 
     if len(myresult)>0:
