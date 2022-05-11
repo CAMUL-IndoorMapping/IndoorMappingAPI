@@ -52,7 +52,7 @@ def accountLogin():
   Parameters: 
     email: User email.
     password: User password.
-
+a
   Returns: 
           200 OK ( {"status" : "success"} )
           400 Bad Request ( {"status" : "bad request"} )
