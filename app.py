@@ -14,8 +14,10 @@ from os.path import exists
 import base64
 import jwt
 from datetime import datetime, timedelta
+from flask_cors import CORS
 
 app = Flask(__name__)
+cors = CORS(app, resources={r"*": {"origins": "*"}})
 app.secret_key = config('APP_SECRET_KEY')
 
 # Email configurations
@@ -29,17 +31,31 @@ mail = Mail(app)
 tokenSerial = URLSafeTimedSerializer(app.config['SECRET_KEY'])
 
 def db_connection():
-
   mydb = mysql.connector.connect(
     host=config('DB_HOST'),
     user=config('DB_USER'),
     password=config('DB_PASSWORD'),
-    database=config('DB_DATABASE')
+    database=config('DB_DATABASE'),
+    port='3306'
   )
 
   mycursor = mydb.cursor()
-  
+
   return {"mydb":mydb, "mycursor":mycursor}
+
+
+def decode_base64(data, altchars=b'+/'):
+    """Decode base64, padding being optional.
+
+    :param data: Base64 data as an ASCII byte string
+    :returns: The decoded byte string.
+
+    """
+    data = re.sub(rb'[^a-zA-Z0-9%s]+' % altchars, b'', data)  # normalize
+    missing_padding = len(data) % 4
+    if missing_padding:
+        data += b'='* (4 - missing_padding)
+    return base64.b64decode(data, altchars)
 
 
 @app.route("/account/login", methods=["GET"])
@@ -49,16 +65,16 @@ def accountLogin():
 
   Endpoint: /account/login
 
-  Parameters: 
+  Parameters:
     email: User email.
     password: User password.
 
-  Returns: 
+  Returns:
           200 OK ( {"status" : "success"} )
           400 Bad Request ( {"status" : "bad request"} )
           401 Unauthorized ( {"status" : "unauthorized"} )
   """
-  
+
   if "loggedin" not in session:
     # Get the JSON containing the user input
     credentials=request.get_json()
@@ -73,7 +89,7 @@ def accountLogin():
       return jsonify({"status":"unauthorized - invalid credentials"})
 
     # Check if the input email exists (password verification is done in another step)
-    queryString = "SELECT email, password, authToken FROM user WHERE email=%s"  
+    queryString = "SELECT email, password, authToken FROM user WHERE email=%s"
     cursor.execute(queryString, (credentials['email'],))
     myresult = cursor.fetchall()
 
@@ -102,12 +118,12 @@ def accountSignup():
 
   Endpoint: /account/signup
 
-  Parameters: 
+  Parameters:
     name: User name.
     email: User email.
     password: User password.
 
-  Returns: 
+  Returns:
           200 OK ( {"status" : "success"} )
           400 Bad Request ( {"status" : "bad request"} )
   """
@@ -125,7 +141,7 @@ def accountSignup():
     return jsonify({"status":"bad request - missing parameters"})
 
   # SQL Query to obtain all emails
-  queryString = "SELECT email FROM user WHERE email=%s"  
+  queryString = "SELECT email FROM user WHERE email=%s"
   cursor.execute(queryString, (credentials['email'],))
   myresult = cursor.fetchall()
 
@@ -185,12 +201,12 @@ def accountForgot(resetToken=None):
   Endpoints: /account/forgot
              /accout/forgot/<token>
 
-  Parameters: 
+  Parameters:
     GET -> email: User email.
     POST -> email: User email.
             password: User's new password.
 
-  Returns: 
+  Returns:
           200 OK ( {"status" : "success"} )
           400 Bad Request ( {"status" : "bad request"} )
   """
@@ -202,14 +218,14 @@ def accountForgot(resetToken=None):
     # User input validation
     if not credentials["email"]:
       return jsonify({"status":"bad request - missing parameters"})
-  
+
     # Database connection
     db     = db_connection()
     mydb   = db["mydb"]
     cursor = db["mycursor"]
 
     # Check if email exists
-    queryString = "SELECT email FROM user WHERE email=%s"  
+    queryString = "SELECT email FROM user WHERE email=%s"
     cursor.execute(queryString, (credentials['email'],))
     results = cursor.fetchall()
 
@@ -228,7 +244,7 @@ def accountForgot(resetToken=None):
       #url = f"http://127.0.0.1:5000/account/forgot/{token}"
       url = url_for('accountForgot', resetToken=token, _external=True)
       msg.body = f'''To reset your password, visit the following link:\n{url}\nIf you did not make this request then simply ignore this email and no changes will be made.'''
-                  
+
       mail.send(msg)
 
     send_reset_email(email)
@@ -245,7 +261,7 @@ def accountForgot(resetToken=None):
 
     if not credentials["password"]:
       return jsonify({"status":"bad request - missing parameters"})
-  
+
     # Database connection
     db     = db_connection()
     mydb   = db["mydb"]
@@ -274,7 +290,7 @@ def accountLogout():
   Returns: 200 OK ( {"status" : "success"} )
            401 Unauthorized ( {"status" : "unauthorized"} )
   """
-  
+
   # Checks if the user is logged in
   if "loggedin" in session:
     # Deletes the session cookie
@@ -300,7 +316,7 @@ def searchBeacon(id):
   #Execute search cammand
   mycursor.execute(query_string, (id,))
 
-  #Save result 
+  #Save result
   myresult=mycursor.fetchall()
 
   #Cheaking if it exists
@@ -344,7 +360,7 @@ def beaconsOperation():
     #Check if parameters where inputed correctly
     if not parameters["idDevice"] or not parameters["IdClassroom"] or not parameters["x"] or not parameters["y"] or not parameters["z"]:
       return jsonify({"status":"bad request - missing parameters"})
-    
+
     #MySQL cammand
     query_string="INSERT INTO beacon (idDevice, IdClassroom, x, y, z) VALUES (%s, %s, %s, %s, %s)"
     """search_idclassroom_query="SELECT IdClassroom FROM beacon WHERE IdClassroom=%s"
@@ -362,7 +378,7 @@ def beaconsOperation():
         return jsonify({"status":"bad request - This device already is being use"})
       elif y[3] == parameters["x"] and y[4] == parameters["y"] and y[5] == parameters["z"]:
         return jsonify({"status":f"bad request - A beacon with these coordinates x:({parameters['x']}), y:({parameters['y']}) and z:({parameters['z']}) already exists"})
-    
+
     #Execute insert cammand
     mycursor.execute(query_string, (parameters["idDevice"], int(parameters["IdClassroom"]), parameters["x"], parameters["y"], parameters["z"]))
     mydb.commit()
@@ -375,24 +391,24 @@ def beaconsOperation():
     #Check if it was found
     if len(mysearchresult) < 1:
       return jsonify({"status":"Error - Beacon wasn't haded"})
-    
+
     return jsonify({"beaaconId": mysearchresult[0][0]})
 
 
 # daniel
 @app.route("/search/waypoints", methods=["GET"])
 def searchWaypoint():
-  """ 
-  
+  """
+
   Returns all waypoints between 2 beacons.
 
   Endpoint: /search/waypoints
 
-  Parameters: 
+  Parameters:
     beaconOrigin: first beacon id.
     beaconDestination: end-point beacon id.
 
-  Returns: 
+  Returns:
           200 OK ( {"status" : "success"} )
           400 Bad Request ( {"status" : "bad request"} )
           401 Unauthorized ( {"status" : "unauthorized"} )
@@ -419,23 +435,23 @@ def searchWaypoint():
 
 @app.route("/search/classrooms/<id>", methods=["GET"])
 def searchClassrooms(id):
-  """ 
-   
+  """
+
   Returns the classroom identified by the ID inserted.
 
   Endpoint: /search/classrooms/<id>
 
-  Returns: 
+  Returns:
           200 OK ( {"status" : "success"} )
           400 Bad Request ( {"status" : "bad request"} )
           401 Unauthorized ( {"status" : "unauthorized"} )
   """
-  
+
   db_obj=db_connection()
   mydb=db_obj["mydb"]
   mycursor=db_obj["mycursor"]
 
-  mycursor.execute("SELECT * FROM classroom WHERE id = '%s' ;" % id)  
+  mycursor.execute("SELECT * FROM classroom WHERE id = '%s' ;" % id)
 
   myresult = mycursor.fetchall()
 
@@ -448,12 +464,12 @@ def searchClassrooms(id):
 
 @app.route("/search/departments/<id>", methods=["GET"])
 def searchDepartments(id):
-  """ 
+  """
   Returns the departments identified by the ID inserted.
 
   Endpoint: /search/departments/<id>
 
-  Returns: 
+  Returns:
           200 OK ( {"status" : "success"} )
           400 Bad Request ( {"status" : "bad request"} )
           401 Unauthorized ( {"status" : "unauthorized"} )
@@ -464,7 +480,7 @@ def searchDepartments(id):
   mycursor=db_obj["mycursor"]
 
   mycursor.execute("SELECT department.id, department.designation, classroom.id, classroom.name, classroom.occupancy, classroom.image FROM department INNER JOIN classroom ON department.id=classroom.idDepartment WHERE department.id=%s ;", (int(id),))
-  
+
   myresult = mycursor.fetchall()
 
   departmentId=0
@@ -484,12 +500,12 @@ def searchDepartments(id):
 @app.route("/map/waypoint", methods=["POST"])
 def placeWaypoint():
   """
-  Parameters: 
+  Parameters:
     idPath -> id do path a que pertence o waypoint
     x -> coordenada X no mapa
     y -> coordenada Y no mapa
     z -> andar do edificio
-  
+
   Headers:
     Content-Type: application/json
     authToken: <session token>
@@ -514,11 +530,11 @@ def placeWaypoint():
     return jsonify({"status":"success"})
 
   return jsonify({"status":"no permission"})
-  
+
 
 @app.route("/map/path", methods=["POST"])
 def placePath():
-  """ 
+  """
   Parameters:
     beaconFrom -> id do beacon de partida
     beaconTo -> id do beacon de chegada
@@ -551,9 +567,9 @@ def placePath():
 @app.route("/account/feedback", methods=["GET", "POST"])
 def feedback():
   """
-  Parameters POST: 
+  Parameters POST:
     type -> text ou image ou video ou audio
-    content -> ficheiro em base64 ou texto normal. o plain text em base64 não pode ter o seguinte texto, nem nada que se assemelhe: data:image/png;base64, 
+    content -> ficheiro em base64 ou texto normal. o plain text em base64 não pode ter o seguinte texto, nem nada que se assemelhe: data:image/png;base64,
     idUser -> id do utilizador que está a fazer o upload
     idBeacon -> id do beacon
   Parameters GET:
@@ -561,8 +577,8 @@ def feedback():
   Headers:
     authToken: <session token>
     Content-Type: application/json
-  
-  NOTA: PARA ACEDER AOS UPLOADS, USAR O ENDPOINT: /uploads/nomedoficheiro.ext 
+
+  NOTA: PARA ACEDER AOS UPLOADS, USAR O ENDPOINT: /uploads/nomedoficheiro.ext
   """
 
   db_obj=db_connection()
@@ -593,7 +609,7 @@ def feedback():
     # verificar se os parametros de POST são válidos
     if not parameters["type"] or not parameters["content"] or not parameters["idUser"] or not parameters["idBeacon"] or not request.headers.get("authToken"):
       return jsonify({"status":"missing parameter(s)"})
-    
+
     mycursor.execute("SELECT user.id FROM user INNER JOIN role ON user.idRole=role.id WHERE authToken=%s AND user.id=%s", (request.headers.get("authToken"), int(parameters["idUser"]) ))
     myresult = mycursor.fetchall()
 
@@ -602,10 +618,9 @@ def feedback():
 
       # a variável content vai assumir valores de texto normal ou de caminhos para o ficheiro
       content=parameters["content"]
-
       # verificar se está a ser feito upload de um ficheiro ou de texto livre
       if parameters["type"]!="text":
-
+        content=parameters["content"].split(",")[1].encode("ascii")
         # definir um nome para o ficheiro novo
         fileName="uploads/"+secrets.token_hex(8) + "." + fileFormats[parameters["type"]]
 
@@ -614,7 +629,7 @@ def feedback():
           fileName="uploads/"+secrets.token_hex(8) + "." + fileFormats[parameters["type"]]
 
         # converter o ficheiro em base64 para binário e guarda-lo no sistema de ficheiros
-        fileBin = base64.b64decode(parameters["content"] + '==')
+        fileBin = base64.b64decode(content)
 
         f=open(fileName, "wb")
         f.write(fileBin)
@@ -647,7 +662,7 @@ def get_files(filename):
 @app.route("/account/delete", methods=["DELETE"])
 def accountDelete():
     # Content-Type: application/json
-    # Parameters: 
+    # Parameters:
     #   username -> username of the account whose account is being deleted
     #   password -> password to confirm user's auth
     #
@@ -677,14 +692,14 @@ def accountDelete():
 
       print(parameters["password"])
       return jsonify({"status":"wrong password"})
-    
+
     return jsonify({"status":"no permission"})
 
 
 @app.route("/account/change", methods=["PUT"])
 def accountChange():
     # Content-Type: application/json
-    # Parameters: 
+    # Parameters:
     #   username -> username of the account whose password is being changed
     #   oldPassword -> old password to confirm user's auth
     #   newPassword -> new password to be set
@@ -721,20 +736,20 @@ def accountChange():
         return jsonify({"status":"new password is invalid"})
 
       return jsonify({"status":"wrong password"})
-    
+
     return jsonify({"status":"no permission"})
 
 
 @app.route("/account/reviews", methods=["GET", "POST"])
 def accountReviews():
     # Content-Type: application/json
-    # Parameters POST: 
+    # Parameters POST:
     #   idUser -> id of the user attempting to post a review
     #   body -> text to be included in said review
     #
     # Parameters GET:
     #   None
-    #   
+    #
     # authToken: <session token>
   db_obj=db_connection()
   mydb=db_obj["mydb"]
@@ -764,7 +779,7 @@ def accountReviews():
       mydb.commit()
 
       return jsonify({"status":"success"})
-    
+
     return jsonify({"status":"no permission"})
   return jsonify({})
 
