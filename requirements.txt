@@ -5,3 +5,4 @@ python-decouple
 flask_login
 flask_mail
 flask_cors
+Sphinx

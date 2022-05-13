@@ -354,6 +354,9 @@ def beaconsOperation():
 
   Endpoint: /map/beacons
 
+  Headers:
+    authToken
+
   Parameters:
     "beaconId" -> mandatory
 
@@ -476,8 +479,6 @@ def beaconsOperation():
     mydb.commit()
 
     return jsonify({"status":"succeed"})
-
-
 
 
 # daniel
@@ -671,7 +672,7 @@ def feedback():
   mycursor=db_obj["mycursor"]
 
   if request.method=="GET":
-    sql_query="SELECT id, idBeacon, content, idUser, type FROM note"
+    sql_query="SELECT id, idBeacon, content, idUser, type, dateTime FROM note"
     params=()
 
     if request.args.get("idUser"):
@@ -684,7 +685,7 @@ def feedback():
 
     notes=[]
     for x in myresult:
-      notes.append({"id":x[0], "idBeacon":x[1], "content":x[2], "idUser":x[3], "type":x[4]})
+      notes.append({"id":x[0], "idBeacon":x[1], "content":x[2], "idUser":x[3], "type":x[4], "dateTime": x[5]})
 
     return jsonify({"feedback":notes})
 
