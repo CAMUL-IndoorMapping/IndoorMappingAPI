@@ -90,9 +90,25 @@ def accountLogin():
       if not check_password_hash(passwordToCheck, credentials["password"]):
         return jsonify({"status" : "unauthorized - invalid password"})
       else:
+        # Generate new AuthToken
+        payload = {
+                  'exp': datetime.utcnow() + timedelta(days=0, seconds=5),
+                  'iat': datetime.utcnow(),
+                  'sub': credentials['email']
+                  }
+        authToken = jwt.encode(
+                  payload,
+                  config('APP_SECRET_KEY'),
+                  algorithm='HS256'
+                  )
+
+        # Update authToken
+        queryString = "UPDATE user SET authToken=%s WHERE email=%s"  
+        cursor.execute(queryString, (authToken,credentials['email']))
+
         # Log user in
         session["loggedin"] = True
-        session["authToken"] = myresult[0][2]
+        session["authToken"] = authToken
         return jsonify({"status" : "success"})
   else:
     return jsonify({"status" : "unauthorized - a user is already logged in"})
