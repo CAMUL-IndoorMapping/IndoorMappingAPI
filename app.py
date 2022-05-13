@@ -45,6 +45,19 @@ def db_connection():
   return {"mydb":mydb, "mycursor":mycursor}
 
 
+def checkUserAdmin(authToken):
+  db_obj=db_connection()
+  mycursor=db_obj["mycursor"]
+
+  mycursor.execute("SELECT user.id FROM user INNER JOIN role ON user.idRole=role.id WHERE authToken=%s AND role.name='admin'", (authToken,))
+  myresult = mycursor.fetchall()
+
+  if len(myresult)>0:
+    return True
+
+  return False
+
+
 @app.route("/account/login", methods=["GET"])
 def accountLogin():
   """
@@ -103,7 +116,7 @@ def accountLogin():
                   )
 
         # Update authToken
-        queryString = "UPDATE user SET authToken=%s WHERE email=%s"  
+        queryString = "UPDATE user SET authToken=%s WHERE email=%s"
         cursor.execute(queryString, (authToken,credentials['email']))
 
         # Log user in
@@ -334,9 +347,28 @@ def searchBeacon(id):
   return jsonify(beacon)
 
 
-@app.route("/map/beacons", methods=["GET", "POST"])
+@app.route("/map/beacons", methods=["GET", "POST", "PUT"])
 def beaconsOperation():
+  """
+  Logs the current user out.
 
+  Endpoint: /map/beacons
+
+  Parameters:
+    "beaconId" -> mandatory
+
+    {
+      "beaconId":1,
+      "beaconName":"Beacon Um",
+      "classroomId":2,
+      "x":4,
+      "y":5,
+      "z":6
+    }
+
+  Returns: 200 OK ( {"status" : "success"} )
+           401 Unauthorized ( {"status" : "unauthorized"} )
+  """
   #Connect to database
   db_obj=db_connection()
   mydb=db_obj["mydb"]
@@ -360,6 +392,10 @@ def beaconsOperation():
     #Get data from request
     parameters=request.get_json()
 
+    # check if user is an admin
+    if not request.headers.get("authToken") or not checkUserAdmin(request.headers.get("authToken")):
+      return jsonify({"status":"bad request - no permission"})
+
     #Check if parameters where inputed correctly
     if not parameters["idDevice"] or not parameters["IdClassroom"] or not parameters["x"] or not parameters["y"] or not parameters["z"]:
       return jsonify({"status":"bad request - missing parameters"})
@@ -378,7 +414,7 @@ def beaconsOperation():
     for y in myresult:
       print(y)
       if y[1] == parameters["idDevice"]:
-        return jsonify({"status":"bad request - This device already is being use"})
+        return jsonify({"status":"bad request - This device already is being used"})
       elif y[3] == parameters["x"] and y[4] == parameters["y"] and y[5] == parameters["z"]:
         return jsonify({"status":f"bad request - A beacon with these coordinates x:({parameters['x']}), y:({parameters['y']}) and z:({parameters['z']}) already exists"})
 
@@ -396,6 +432,52 @@ def beaconsOperation():
       return jsonify({"status":"Error - Beacon wasn't haded"})
 
     return jsonify({"beaaconId": mysearchresult[0][0]})
+
+  if request.method=="PUT":
+    parameters=request.get_json()
+
+    # check if user is an admin
+    if not request.headers.get("authToken") or not checkUserAdmin(request.headers.get("authToken")):
+      return jsonify({"status":"bad request - no permission"})
+
+    #Check if parameters where inputed correctly
+    if not parameters["beaconId"] or len(parameters)<2:
+      return jsonify({"status":"bad request - missing parameters; at least 2 parameters; beaconId is mandatory"})
+
+    query_update="UPDATE beacon SET id=id"
+    query_param=()
+
+    # add parameters to database
+    if "beaconName" in parameters:
+      query_update+=", idDevice=%s"
+      query_param+=(parameters["beaconName"],)
+
+    if "classroomId" in parameters:
+      query_update+=", idClassroom=%s"
+      query_param+=(parameters["classroomId"],)
+
+    if "x" in parameters:
+      query_update+=", x=%s"
+      query_param+=(parameters["x"],)
+
+    if "y" in parameters:
+      query_update+=", y=%s"
+      query_param+=(parameters["y"],)
+
+    if "z" in parameters:
+      query_update+=", z=%s"
+      query_param+=(parameters["z"],)
+    
+    # add suffix to query
+    query_update+=" WHERE id=%s"
+    query_param+=(parameters["beaconId"],)
+
+    mycursor.execute(query_update, query_param)
+    mydb.commit()
+
+    return jsonify({"status":"succeed"})
+
+
 
 
 # daniel
