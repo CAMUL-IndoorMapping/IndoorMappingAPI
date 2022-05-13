@@ -19,6 +19,7 @@ from flask_cors import CORS
 app = Flask(__name__)
 cors = CORS(app, resources={r"*": {"origins": "*"}})
 app.secret_key = config('APP_SECRET_KEY')
+THIS_FOLDER = os.path.dirname(os.path.abspath(__file__))
 
 # Email configurations
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
@@ -42,20 +43,6 @@ def db_connection():
   mycursor = mydb.cursor()
 
   return {"mydb":mydb, "mycursor":mycursor}
-
-
-def decode_base64(data, altchars=b'+/'):
-    """Decode base64, padding being optional.
-
-    :param data: Base64 data as an ASCII byte string
-    :returns: The decoded byte string.
-
-    """
-    data = re.sub(rb'[^a-zA-Z0-9%s]+' % altchars, b'', data)  # normalize
-    missing_padding = len(data) % 4
-    if missing_padding:
-        data += b'='* (4 - missing_padding)
-    return base64.b64decode(data, altchars)
 
 
 @app.route("/account/login", methods=["GET"])
@@ -631,7 +618,8 @@ def feedback():
         # converter o ficheiro em base64 para binário e guarda-lo no sistema de ficheiros
         fileBin = base64.b64decode(content)
 
-        f=open(fileName, "wb")
+        my_file = os.path.join(THIS_FOLDER, fileName)
+        f=open(my_file, "wb")
         f.write(fileBin)
 
         content=fileName
