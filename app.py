@@ -154,7 +154,7 @@ def accountLogin():
         # Return payload
         if myresult[0][QUERY_ROLE] == 1:
           userRole = "admin"
-        elif myresult[0][QUERY_ROLE] == 1:
+        elif myresult[0][QUERY_ROLE] == 2:
           userRole = "user"
         else:
           userRole = None
