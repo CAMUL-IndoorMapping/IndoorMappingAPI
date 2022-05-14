@@ -119,9 +119,15 @@ def accountLogin():
       return jsonify({"status":"unauthorized - invalid credentials"})
 
     # Check if the input email exists (password verification is done in another step)
-    queryString = "SELECT email, password, authToken FROM user WHERE email=%s"
+    queryString = "SELECT email, password, authToken, id, idRole, name FROM user WHERE email=%s"
     cursor.execute(queryString, (credentials['email'],))
     myresult = cursor.fetchall()
+    QUERY_EMAIL    = 0
+    QUERY_PASSWORD = 1
+    QUERY_TOKEN    = 2
+    QUERY_ID       = 3
+    QUERY_ROLE     = 4
+    QUERY_USERNAME = 5
 
     # If the email doesn't exist, we don't even bother to check if the password is correct
     if len(myresult) < 1:
@@ -129,7 +135,7 @@ def accountLogin():
     else:
       # If it exists, we then check if the password is correct
       # Note: The encrypted password is being returned as "bytearray(b'')", and we want what is between the '', which is what this regex returns (this could be improved)
-      passwordToCheck = re.search(r'\'(.*?)\'',str(myresult[0][1])).group(1)
+      passwordToCheck = re.search(r'\'(.*?)\'',str(myresult[0][QUERY_PASSWORD])).group(1)
       if not check_password_hash(passwordToCheck, credentials["password"]):
         return jsonify({"status" : "unauthorized - invalid password"})
       else:
@@ -145,6 +151,15 @@ def accountLogin():
                   algorithm='HS256'
                   )
 
+        # Return payload
+        if myresult[0][QUERY_ROLE] == 1:
+          userRole = "admin"
+        elif myresult[0][QUERY_ROLE] == 1:
+          userRole = "user"
+        else:
+          userRole = None
+        currentUser = { "username": myresult[0][QUERY_USERNAME], "userID": myresult[0][QUERY_ID], "authToken": authToken, "userRole": str(userRole) }
+
         # Update authToken
         queryString = "UPDATE user SET authToken=%s WHERE email=%s"
         cursor.execute(queryString, (authToken,credentials['email']))
@@ -152,7 +167,7 @@ def accountLogin():
         # Log user in
         session["loggedin"] = True
         session["authToken"] = authToken
-        return jsonify({"status" : "success"})
+        return jsonify(currentUser)
   else:
     return jsonify({"status" : "unauthorized - a user is already logged in"})
 
