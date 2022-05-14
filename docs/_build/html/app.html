@@ -1,0 +1,502 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+    <title>app module &#8212; Indoor Mapping API ISEP  documentation</title>
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='pygments.css') }}" />
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='alabaster.css') }}" />
+    <script data-url_root="./" id="documentation_options" src="{{ url_for('static', filename='documentation_options.js') }}"></script>
+    <script src="{{ url_for('static', filename='jquery.js') }}"></script>
+    <script src="{{ url_for('static', filename='underscore.js') }}"></script>
+    <script src="{{ url_for('static', filename='doctools.js') }}"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="prev" title="IndoorMappingAPI" href="modules.html" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='custom.css') }}" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="module-app">
+<span id="app-module"></span><h1>app module<a class="headerlink" href="#module-app" title="Permalink to this headline">¶</a></h1>
+<dl class="py function">
+<dt class="sig sig-object py" id="app.accountChange">
+<span class="sig-prename descclassname"><span class="pre">app.</span></span><span class="sig-name descname"><span class="pre">accountChange</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/app.html#accountChange"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#app.accountChange" title="Permalink to this definition">¶</a></dt>
+<dd><p>Description: Change user’s password</p>
+<p>Endpoint:
+- /account/change</p>
+<p>Headers:
+- authToken</p>
+<p>Parameters GET:
+- none</p>
+<p>Parameters POST:
+- none</p>
+<p>Parameters PUT:
+- username
+- oldPassword
+- newPassword</p>
+<p>Parameters DELETE:
+- none</p>
+<p>Returns:
+- 200 OK ( {“status” : “success”} )
+- 400 Bad Request ( {“status” : “bad request”} )
+- 401 Unauthorized ( {“status” : “unauthorized”} )</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="app.accountDelete">
+<span class="sig-prename descclassname"><span class="pre">app.</span></span><span class="sig-name descname"><span class="pre">accountDelete</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/app.html#accountDelete"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#app.accountDelete" title="Permalink to this definition">¶</a></dt>
+<dd><p>Description: Deletes user account</p>
+<p>Endpoint:
+- /account/delete</p>
+<p>Headers:
+- authToken</p>
+<p>Parameters GET:
+- none</p>
+<p>Parameters POST:
+- none</p>
+<p>Parameters PUT:
+- none</p>
+<p>Parameters DELETE:
+- username
+- password</p>
+<p>Returns:
+- 200 OK ( {“status” : “success”} )
+- 400 Bad Request ( {“status” : “bad request”} )
+- 401 Unauthorized ( {“status” : “unauthorized”} )</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="app.accountForgot">
+<span class="sig-prename descclassname"><span class="pre">app.</span></span><span class="sig-name descname"><span class="pre">accountForgot</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">resetToken</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/app.html#accountForgot"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#app.accountForgot" title="Permalink to this definition">¶</a></dt>
+<dd><p>Description: Allows user to recover their lost password. Allows GET and POST methods. GET -&gt; Receives an email to which a message will be sent with a link to insert the new password. POST -&gt; Allows the user to insert the new password, updating the database</p>
+<p>Endpoint:
+- (GET) /account/forgot
+- (POST) /accout/forgot/&lt;token&gt;</p>
+<p>Headers:
+- none</p>
+<p>Parameters GET:
+- email</p>
+<p>Parameters POST:
+- email
+- password</p>
+<p>Parameters PUT:
+- none</p>
+<p>Parameters DELETE:
+- none</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>“success”} )
+400 Bad Request ( {“status” : “bad request”} )</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>200 OK ( {“status”</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="app.accountLogin">
+<span class="sig-prename descclassname"><span class="pre">app.</span></span><span class="sig-name descname"><span class="pre">accountLogin</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/app.html#accountLogin"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#app.accountLogin" title="Permalink to this definition">¶</a></dt>
+<dd><p>Description: Logs the user in.</p>
+<p>Endpoint:
+- /account/login</p>
+<p>Headers:
+- none</p>
+<p>Parameters GET:
+- email
+- password</p>
+<p>Parameters POST:
+- none</p>
+<p>Parameters PUT:
+- none</p>
+<p>Parameters DELETE:
+- none</p>
+<p>Returns:
+- 200 OK ( {“status” : “success”} )
+- 400 Bad Request ( {“status” : “bad request”} )
+- 401 Unauthorized ( {“status” : “unauthorized”} )</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="app.accountLogout">
+<span class="sig-prename descclassname"><span class="pre">app.</span></span><span class="sig-name descname"><span class="pre">accountLogout</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/app.html#accountLogout"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#app.accountLogout" title="Permalink to this definition">¶</a></dt>
+<dd><p>Description: Logs the current user out.</p>
+<p>Endpoint:
+- /account/logout</p>
+<p>Headers:
+- none</p>
+<p>Parameters GET:
+- none</p>
+<p>Parameters POST:
+- none</p>
+<p>Parameters PUT:
+- none</p>
+<p>Parameters DELETE:
+- none</p>
+<p>Returns:
+- 200 OK ( {“status” : “success”} )
+- 401 Unauthorized ( {“status” : “unauthorized”} )</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="app.accountReviews">
+<span class="sig-prename descclassname"><span class="pre">app.</span></span><span class="sig-name descname"><span class="pre">accountReviews</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/app.html#accountReviews"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#app.accountReviews" title="Permalink to this definition">¶</a></dt>
+<dd><p>Description: Returns all the reviews sent by users / Insert a new review</p>
+<p>Endpoint:
+- /account/reviews</p>
+<p>Headers:
+- (POST) authToken</p>
+<p>Parameters GET:
+- none</p>
+<p>Parameters POST:
+- idUser
+- body</p>
+<p>Parameters PUT:
+- none</p>
+<p>Parameters DELETE:
+- none</p>
+<p>Returns:
+- 200 OK ( {“status” : “success”} )
+- 400 Bad Request ( {“status” : “bad request”} )
+- 401 Unauthorized ( {“status” : “unauthorized”} )</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="app.accountSignup">
+<span class="sig-prename descclassname"><span class="pre">app.</span></span><span class="sig-name descname"><span class="pre">accountSignup</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/app.html#accountSignup"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#app.accountSignup" title="Permalink to this definition">¶</a></dt>
+<dd><p>Description: Creates a new account.</p>
+<p>Endpoint:
+- /account/signup</p>
+<p>Headers:
+- none</p>
+<p>Parameters GET:
+- none</p>
+<p>Parameters POST:
+- name
+- email
+- password</p>
+<p>Parameters PUT:
+- none</p>
+<p>Parameters DELETE:
+- none</p>
+<p>Returns:
+- 200 OK ( {“status” : “success”} )
+- 400 Bad Request ( {“status” : “bad request”} )</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="app.beaconsOperation">
+<span class="sig-prename descclassname"><span class="pre">app.</span></span><span class="sig-name descname"><span class="pre">beaconsOperation</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/app.html#beaconsOperation"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#app.beaconsOperation" title="Permalink to this definition">¶</a></dt>
+<dd><p>Description: returns all the beacons in the map</p>
+<p>Endpoint:
+- /map/beacons
+Headers:
+- (POST / PUT) authToken</p>
+<p>Parameters GET:
+- none</p>
+<p>Parameters POST:
+- idDevice
+- IdClassroom
+- x
+- y
+- z</p>
+<p>Parameters PUT:
+- beaconId : mandatory
+- beaconName : optional
+- classroomId : optional
+- x : optional
+- y : optional
+- z : optional</p>
+<p>Parameters DELETE:
+- none</p>
+<p>Returns:
+- 200 OK ( {“status” : “success”} )
+- 400 Unauthorized ( {“status”:”bad request - missing parameters; at least 2 parameters; beaconId is mandatory”} )
+- 403 Unauthorized ( {“status”:”bad request - no permission”} )</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="app.checkUserAdmin">
+<span class="sig-prename descclassname"><span class="pre">app.</span></span><span class="sig-name descname"><span class="pre">checkUserAdmin</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">authToken</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/app.html#checkUserAdmin"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#app.checkUserAdmin" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="app.db_connection">
+<span class="sig-prename descclassname"><span class="pre">app.</span></span><span class="sig-name descname"><span class="pre">db_connection</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/app.html#db_connection"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#app.db_connection" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="app.feedback">
+<span class="sig-prename descclassname"><span class="pre">app.</span></span><span class="sig-name descname"><span class="pre">feedback</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/app.html#feedback"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#app.feedback" title="Permalink to this definition">¶</a></dt>
+<dd><p>Description: Returns / Adds feedback inserted by user. This feedback is the daily diary. NOTE: TO ACCESS UPLOADS, USE THE ENDPOINT: /uploads/nomedoficheiro.ext</p>
+<p>Endpoint:
+- /account/feedback</p>
+<p>Headers:
+- (POST) authToken</p>
+<p>Parameters GET:
+- idUser : optional</p>
+<p>Parameters POST:
+- type -&gt; text ou image ou video ou audio
+- content -&gt; ficheiro em base64 ou texto normal. o plain text em base64 não pode ter o seguinte texto, nem nada que se assemelhe: <a class="reference external" href="data:image/png;base64">data:image/png;base64</a>,
+- idUser -&gt; id do utilizador que está a fazer o upload
+- idBeacon -&gt; id do beacon</p>
+<p>Parameters PUT:
+- none</p>
+<p>Parameters DELETE:
+- none</p>
+<p>Returns:
+- 200 OK ( {“status” : “success”} )
+- 400 Bad Request ( {“status” : “bad request”} )
+- 401 Unauthorized ( {“status” : “unauthorized”} )</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="app.get_files">
+<span class="sig-prename descclassname"><span class="pre">app.</span></span><span class="sig-name descname"><span class="pre">get_files</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">filename</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/app.html#get_files"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#app.get_files" title="Permalink to this definition">¶</a></dt>
+<dd><p>Description: Returns a file uploaded</p>
+<p>Endpoint:
+- /uploads/&lt;filename&gt;</p>
+<p>Headers:
+- none</p>
+<p>Parameters GET:
+- none</p>
+<p>Parameters POST:
+- none</p>
+<p>Parameters PUT:
+- none</p>
+<p>Parameters DELETE:
+- none</p>
+<p>Returns:
+- 200 OK ( {“status” : “success”} )
+- 400 Bad Request ( {“status” : “bad request”} )
+- 401 Unauthorized ( {“status” : “unauthorized”} )</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="app.placePath">
+<span class="sig-prename descclassname"><span class="pre">app.</span></span><span class="sig-name descname"><span class="pre">placePath</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/app.html#placePath"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#app.placePath" title="Permalink to this definition">¶</a></dt>
+<dd><p>Description: Adds a new path to the map, by indicating the starting and the ending points.</p>
+<p>Endpoint:
+- /map/path</p>
+<p>Headers:
+- authToken</p>
+<p>Parameters GET:
+- none</p>
+<p>Parameters POST:
+- beaconFrom
+- beaconTo</p>
+<p>Parameters PUT:
+- none</p>
+<p>Parameters DELETE:
+- none</p>
+<p>Returns:
+- 200 OK ( {“status” : “success”} )
+- 400 Bad Request ( {“status” : “bad request”} )
+- 401 Unauthorized ( {“status” : “unauthorized”} )</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="app.placeWaypoint">
+<span class="sig-prename descclassname"><span class="pre">app.</span></span><span class="sig-name descname"><span class="pre">placeWaypoint</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/app.html#placeWaypoint"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#app.placeWaypoint" title="Permalink to this definition">¶</a></dt>
+<dd><p>Description: Adds a new waypoint in the map, between two beacons.</p>
+<p>Endpoint:
+- /map/waypoint</p>
+<p>Headers:
+- authToken</p>
+<p>Parameters GET:
+- none</p>
+<p>Parameters POST:
+- idPath
+- x
+- y
+- z</p>
+<p>Parameters PUT:
+- none</p>
+<p>Parameters DELETE:
+- none</p>
+<p>Returns:
+- 200 OK ( {“status” : “success”} )
+- 400 Bad Request ( {“status” : “bad request”} )
+- 401 Unauthorized ( {“status” : “unauthorized”} )</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="app.searchBeacon">
+<span class="sig-prename descclassname"><span class="pre">app.</span></span><span class="sig-name descname"><span class="pre">searchBeacon</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">id</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/app.html#searchBeacon"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#app.searchBeacon" title="Permalink to this definition">¶</a></dt>
+<dd><p>Description: Returns information about one specific beacon</p>
+<p>Endpoint:
+- /search/beacons/&lt;id&gt;</p>
+<p>Headers:
+- none</p>
+<p>Parameters GET:
+- none</p>
+<p>Parameters POST:
+- none</p>
+<p>Parameters PUT:
+- none</p>
+<p>Parameters DELETE:
+- none</p>
+<p>Returns:
+- 200 OK ( {“idDevice”:””, “idClassroom”:””, “x”:””, “y”:””, “z”:””} )
+- 401 Unauthorized ( {“status” : “unauthorized”} )</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="app.searchClassrooms">
+<span class="sig-prename descclassname"><span class="pre">app.</span></span><span class="sig-name descname"><span class="pre">searchClassrooms</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">id</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/app.html#searchClassrooms"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#app.searchClassrooms" title="Permalink to this definition">¶</a></dt>
+<dd><p>Description: Returns all the classrooms / Returns the classroom identified by the ID inserted</p>
+<p>Endpoint:
+- /map/classrooms
+- /search/classrooms/&lt;id&gt;</p>
+<p>Headers:
+- none</p>
+<p>Parameters GET:
+- none</p>
+<p>Parameters POST:
+- none</p>
+<p>Parameters PUT:
+- none</p>
+<p>Parameters DELETE:
+- none</p>
+<p>Returns:
+- 200 OK ( {“status” : “success”} )
+- 400 Bad Request ( {“status” : “bad request”} )
+- 401 Unauthorized ( {“status” : “unauthorized”} )</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="app.searchDepartments">
+<span class="sig-prename descclassname"><span class="pre">app.</span></span><span class="sig-name descname"><span class="pre">searchDepartments</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">id</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/app.html#searchDepartments"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#app.searchDepartments" title="Permalink to this definition">¶</a></dt>
+<dd><p>Description: Returns the departments identified by the ID inserted.</p>
+<p>Endpoint:
+- /search/departments/&lt;id&gt;</p>
+<p>Headers:
+- none</p>
+<p>Parameters GET:
+- none</p>
+<p>Parameters POST:
+- none</p>
+<p>Parameters PUT:
+- none</p>
+<p>Parameters DELETE:
+- none</p>
+<p>Returns:
+- 200 OK ( {“status” : “success”} )
+- 400 Bad Request ( {“status” : “bad request”} )
+- 401 Unauthorized ( {“status” : “unauthorized”} )</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="app.searchWaypoint">
+<span class="sig-prename descclassname"><span class="pre">app.</span></span><span class="sig-name descname"><span class="pre">searchWaypoint</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/app.html#searchWaypoint"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#app.searchWaypoint" title="Permalink to this definition">¶</a></dt>
+<dd><p>Description: Returns all waypoints between 2 beacons.</p>
+<p>Endpoint:
+- /search/waypoints</p>
+<p>Headers:
+- none</p>
+<p>Parameters GET:
+- beaconOrigin
+- beaconDestination</p>
+<p>Parameters POST:
+- none</p>
+<p>Parameters PUT:
+- none</p>
+<p>Parameters DELETE:
+- none</p>
+<p>Returns:
+- 200 OK ( {“status” : “success”} )
+- 400 Bad Request ( {“status” : “bad request”} )
+- 401 Unauthorized ( {“status” : “unauthorized”} )</p>
+</dd></dl>
+
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">Indoor Mapping API ISEP</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="modules.html">IndoorMappingAPI</a><ul class="current">
+<li class="toctree-l2 current"><a class="current reference internal" href="#">app module</a></li>
+</ul>
+</li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+  <li><a href="modules.html">IndoorMappingAPI</a><ul>
+      <li>Previous: <a href="modules.html" title="previous chapter">IndoorMappingAPI</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2022, G01.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 4.5.0</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="_sources/app.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>
