@@ -1,5 +1,5 @@
 from email.mime import base
-from flask import Flask, request, jsonify, send_from_directory, abort, session, url_for
+from flask import Flask, request, jsonify, send_from_directory, abort, session, url_for, render_template
 import json
 import mysql.connector
 import os
@@ -16,7 +16,7 @@ import jwt
 from datetime import datetime, timedelta
 from flask_cors import CORS
 
-app = Flask(__name__)
+app = Flask(__name__, template_folder='./docs/_build/html', static_folder='./docs/_build/html/_static')
 cors = CORS(app, resources={r"*": {"origins": "*"}})
 app.secret_key = config('APP_SECRET_KEY')
 THIS_FOLDER = os.path.dirname(os.path.abspath(__file__))
@@ -56,6 +56,19 @@ def checkUserAdmin(authToken):
     return True
 
   return False
+
+@app.route("/docs", methods=["GET"])
+@app.route("/docs/", methods=["GET"])
+@app.route("/docs/<filename>", methods=["GET"])
+def docs(filename="index.html"):
+  return render_template(filename)
+
+
+@app.route("/docs/_modules", methods=["GET"])
+@app.route("/docs/_modules/", methods=["GET"])
+@app.route("/docs/_modules/<filename>", methods=["GET"])
+def docsModules(filename="index.html"):
+  return render_template("_modules/" + filename)
 
 
 @app.route("/account/login", methods=["GET"])

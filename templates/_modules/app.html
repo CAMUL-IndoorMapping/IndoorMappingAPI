@@ -1,0 +1,1319 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>app &#8212; Indoor Mapping API ISEP  documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css" />
+    <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for app</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">email.mime</span> <span class="kn">import</span> <span class="n">base</span>
+<span class="kn">from</span> <span class="nn">flask</span> <span class="kn">import</span> <span class="n">Flask</span><span class="p">,</span> <span class="n">request</span><span class="p">,</span> <span class="n">jsonify</span><span class="p">,</span> <span class="n">send_from_directory</span><span class="p">,</span> <span class="n">abort</span><span class="p">,</span> <span class="n">session</span><span class="p">,</span> <span class="n">url_for</span>
+<span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">import</span> <span class="nn">mysql.connector</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">re</span>
+<span class="kn">from</span> <span class="nn">decouple</span> <span class="kn">import</span> <span class="n">config</span>
+<span class="kn">from</span> <span class="nn">werkzeug.security</span> <span class="kn">import</span> <span class="n">generate_password_hash</span><span class="p">,</span> <span class="n">check_password_hash</span>
+<span class="kn">from</span> <span class="nn">flask_login</span> <span class="kn">import</span> <span class="n">login_user</span><span class="p">,</span> <span class="n">login_required</span><span class="p">,</span> <span class="n">logout_user</span><span class="p">,</span> <span class="n">current_user</span>
+<span class="kn">from</span> <span class="nn">flask_mail</span> <span class="kn">import</span> <span class="n">Message</span><span class="p">,</span> <span class="n">Mail</span>
+<span class="kn">from</span> <span class="nn">itsdangerous</span> <span class="kn">import</span> <span class="n">URLSafeTimedSerializer</span>
+<span class="kn">import</span> <span class="nn">secrets</span>
+<span class="kn">from</span> <span class="nn">os.path</span> <span class="kn">import</span> <span class="n">exists</span>
+<span class="kn">import</span> <span class="nn">base64</span>
+<span class="kn">import</span> <span class="nn">jwt</span>
+<span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timedelta</span>
+<span class="kn">from</span> <span class="nn">flask_cors</span> <span class="kn">import</span> <span class="n">CORS</span>
+
+<span class="n">app</span> <span class="o">=</span> <span class="n">Flask</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+<span class="n">cors</span> <span class="o">=</span> <span class="n">CORS</span><span class="p">(</span><span class="n">app</span><span class="p">,</span> <span class="n">resources</span><span class="o">=</span><span class="p">{</span><span class="sa">r</span><span class="s2">&quot;*&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;origins&quot;</span><span class="p">:</span> <span class="s2">&quot;*&quot;</span><span class="p">}})</span>
+<span class="n">app</span><span class="o">.</span><span class="n">secret_key</span> <span class="o">=</span> <span class="n">config</span><span class="p">(</span><span class="s1">&#39;APP_SECRET_KEY&#39;</span><span class="p">)</span>
+<span class="n">THIS_FOLDER</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="vm">__file__</span><span class="p">))</span>
+
+<span class="c1"># Email configurations</span>
+<span class="n">app</span><span class="o">.</span><span class="n">config</span><span class="p">[</span><span class="s1">&#39;MAIL_SERVER&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;smtp.gmail.com&#39;</span>
+<span class="n">app</span><span class="o">.</span><span class="n">config</span><span class="p">[</span><span class="s1">&#39;MAIL_PORT&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">587</span>
+<span class="n">app</span><span class="o">.</span><span class="n">config</span><span class="p">[</span><span class="s1">&#39;MAIL_USE_TLS&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="n">app</span><span class="o">.</span><span class="n">config</span><span class="p">[</span><span class="s1">&#39;MAIL_USERNAME&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;camulisep2022@gmail.com&#39;</span>
+<span class="n">app</span><span class="o">.</span><span class="n">config</span><span class="p">[</span><span class="s1">&#39;MAIL_PASSWORD&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">config</span><span class="p">(</span><span class="s1">&#39;EMAIL_PASS&#39;</span><span class="p">)</span>
+<span class="n">mail</span> <span class="o">=</span> <span class="n">Mail</span><span class="p">(</span><span class="n">app</span><span class="p">)</span>
+
+<span class="n">tokenSerial</span> <span class="o">=</span> <span class="n">URLSafeTimedSerializer</span><span class="p">(</span><span class="n">app</span><span class="o">.</span><span class="n">config</span><span class="p">[</span><span class="s1">&#39;SECRET_KEY&#39;</span><span class="p">])</span>
+
+<div class="viewcode-block" id="db_connection"><a class="viewcode-back" href="../app.html#app.db_connection">[docs]</a><span class="k">def</span> <span class="nf">db_connection</span><span class="p">():</span>
+  <span class="n">mydb</span> <span class="o">=</span> <span class="n">mysql</span><span class="o">.</span><span class="n">connector</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span>
+    <span class="n">host</span><span class="o">=</span><span class="n">config</span><span class="p">(</span><span class="s1">&#39;DB_HOST&#39;</span><span class="p">),</span>
+    <span class="n">user</span><span class="o">=</span><span class="n">config</span><span class="p">(</span><span class="s1">&#39;DB_USER&#39;</span><span class="p">),</span>
+    <span class="n">password</span><span class="o">=</span><span class="n">config</span><span class="p">(</span><span class="s1">&#39;DB_PASSWORD&#39;</span><span class="p">),</span>
+    <span class="n">database</span><span class="o">=</span><span class="n">config</span><span class="p">(</span><span class="s1">&#39;DB_DATABASE&#39;</span><span class="p">),</span>
+    <span class="n">port</span><span class="o">=</span><span class="s1">&#39;3306&#39;</span>
+  <span class="p">)</span>
+
+  <span class="n">mycursor</span> <span class="o">=</span> <span class="n">mydb</span><span class="o">.</span><span class="n">cursor</span><span class="p">()</span>
+
+  <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;mydb&quot;</span><span class="p">:</span><span class="n">mydb</span><span class="p">,</span> <span class="s2">&quot;mycursor&quot;</span><span class="p">:</span><span class="n">mycursor</span><span class="p">}</span></div>
+
+
+<div class="viewcode-block" id="checkUserAdmin"><a class="viewcode-back" href="../app.html#app.checkUserAdmin">[docs]</a><span class="k">def</span> <span class="nf">checkUserAdmin</span><span class="p">(</span><span class="n">authToken</span><span class="p">):</span>
+  <span class="n">db_obj</span><span class="o">=</span><span class="n">db_connection</span><span class="p">()</span>
+  <span class="n">mycursor</span><span class="o">=</span><span class="n">db_obj</span><span class="p">[</span><span class="s2">&quot;mycursor&quot;</span><span class="p">]</span>
+
+  <span class="n">mycursor</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s2">&quot;SELECT user.id FROM user INNER JOIN role ON user.idRole=role.id WHERE authToken=</span><span class="si">%s</span><span class="s2"> AND role.name=&#39;admin&#39;&quot;</span><span class="p">,</span> <span class="p">(</span><span class="n">authToken</span><span class="p">,))</span>
+  <span class="n">myresult</span> <span class="o">=</span> <span class="n">mycursor</span><span class="o">.</span><span class="n">fetchall</span><span class="p">()</span>
+
+  <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">myresult</span><span class="p">)</span><span class="o">&gt;</span><span class="mi">0</span><span class="p">:</span>
+    <span class="k">return</span> <span class="kc">True</span>
+
+  <span class="k">return</span> <span class="kc">False</span></div>
+
+
+<div class="viewcode-block" id="accountLogin"><a class="viewcode-back" href="../app.html#app.accountLogin">[docs]</a><span class="nd">@app</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s2">&quot;/account/login&quot;</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;GET&quot;</span><span class="p">])</span>
+<span class="k">def</span> <span class="nf">accountLogin</span><span class="p">():</span>
+  <span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">  </span>
+<span class="sd">    Description: Logs the user in.</span>
+
+<span class="sd">    Endpoint:</span>
+<span class="sd">    - /account/login</span>
+
+<span class="sd">    Headers:</span>
+<span class="sd">    - none</span>
+
+<span class="sd">    Parameters GET:</span>
+<span class="sd">    - email</span>
+<span class="sd">    - password</span>
+
+<span class="sd">    Parameters POST:</span>
+<span class="sd">    - none</span>
+
+<span class="sd">    Parameters PUT:</span>
+<span class="sd">    - none</span>
+
+<span class="sd">    Parameters DELETE:</span>
+<span class="sd">    - none</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">    - 200 OK ( {&quot;status&quot; : &quot;success&quot;} )</span>
+<span class="sd">    - 400 Bad Request ( {&quot;status&quot; : &quot;bad request&quot;} )</span>
+<span class="sd">    - 401 Unauthorized ( {&quot;status&quot; : &quot;unauthorized&quot;} )</span>
+
+
+<span class="sd">  &quot;&quot;&quot;</span>
+
+  <span class="k">if</span> <span class="s2">&quot;loggedin&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">session</span><span class="p">:</span>
+    <span class="c1"># Get the JSON containing the user input</span>
+    <span class="n">credentials</span><span class="o">=</span><span class="n">request</span><span class="o">.</span><span class="n">get_json</span><span class="p">()</span>
+
+    <span class="c1"># Database connection</span>
+    <span class="n">db</span>     <span class="o">=</span> <span class="n">db_connection</span><span class="p">()</span>
+    <span class="n">mydb</span>   <span class="o">=</span> <span class="n">db</span><span class="p">[</span><span class="s2">&quot;mydb&quot;</span><span class="p">]</span>
+    <span class="n">cursor</span> <span class="o">=</span> <span class="n">db</span><span class="p">[</span><span class="s2">&quot;mycursor&quot;</span><span class="p">]</span>
+
+    <span class="c1"># User input validation</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">credentials</span><span class="p">[</span><span class="s2">&quot;email&quot;</span><span class="p">]</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">credentials</span><span class="p">[</span><span class="s2">&quot;password&quot;</span><span class="p">]:</span>
+      <span class="k">return</span> <span class="n">jsonify</span><span class="p">({</span><span class="s2">&quot;status&quot;</span><span class="p">:</span><span class="s2">&quot;unauthorized - invalid credentials&quot;</span><span class="p">})</span>
+
+    <span class="c1"># Check if the input email exists (password verification is done in another step)</span>
+    <span class="n">queryString</span> <span class="o">=</span> <span class="s2">&quot;SELECT email, password, authToken FROM user WHERE email=</span><span class="si">%s</span><span class="s2">&quot;</span>
+    <span class="n">cursor</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">queryString</span><span class="p">,</span> <span class="p">(</span><span class="n">credentials</span><span class="p">[</span><span class="s1">&#39;email&#39;</span><span class="p">],))</span>
+    <span class="n">myresult</span> <span class="o">=</span> <span class="n">cursor</span><span class="o">.</span><span class="n">fetchall</span><span class="p">()</span>
+
+    <span class="c1"># If the email doesn&#39;t exist, we don&#39;t even bother to check if the password is correct</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">myresult</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
+      <span class="k">return</span> <span class="n">jsonify</span><span class="p">({</span><span class="s2">&quot;status&quot;</span> <span class="p">:</span> <span class="s2">&quot;unauthorized - user does not exist&quot;</span><span class="p">})</span>
+    <span class="k">else</span><span class="p">:</span>
+      <span class="c1"># If it exists, we then check if the password is correct</span>
+      <span class="c1"># Note: The encrypted password is being returned as &quot;bytearray(b&#39;&#39;)&quot;, and we want what is between the &#39;&#39;, which is what this regex returns (this could be improved)</span>
+      <span class="n">passwordToCheck</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="sa">r</span><span class="s1">&#39;</span><span class="se">\&#39;</span><span class="s1">(.*?)</span><span class="se">\&#39;</span><span class="s1">&#39;</span><span class="p">,</span><span class="nb">str</span><span class="p">(</span><span class="n">myresult</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">]))</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+      <span class="k">if</span> <span class="ow">not</span> <span class="n">check_password_hash</span><span class="p">(</span><span class="n">passwordToCheck</span><span class="p">,</span> <span class="n">credentials</span><span class="p">[</span><span class="s2">&quot;password&quot;</span><span class="p">]):</span>
+        <span class="k">return</span> <span class="n">jsonify</span><span class="p">({</span><span class="s2">&quot;status&quot;</span> <span class="p">:</span> <span class="s2">&quot;unauthorized - invalid password&quot;</span><span class="p">})</span>
+      <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># Generate new AuthToken</span>
+        <span class="n">payload</span> <span class="o">=</span> <span class="p">{</span>
+                  <span class="s1">&#39;exp&#39;</span><span class="p">:</span> <span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span> <span class="o">+</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">days</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">seconds</span><span class="o">=</span><span class="mi">5</span><span class="p">),</span>
+                  <span class="s1">&#39;iat&#39;</span><span class="p">:</span> <span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">(),</span>
+                  <span class="s1">&#39;sub&#39;</span><span class="p">:</span> <span class="n">credentials</span><span class="p">[</span><span class="s1">&#39;email&#39;</span><span class="p">]</span>
+                  <span class="p">}</span>
+        <span class="n">authToken</span> <span class="o">=</span> <span class="n">jwt</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span>
+                  <span class="n">payload</span><span class="p">,</span>
+                  <span class="n">config</span><span class="p">(</span><span class="s1">&#39;APP_SECRET_KEY&#39;</span><span class="p">),</span>
+                  <span class="n">algorithm</span><span class="o">=</span><span class="s1">&#39;HS256&#39;</span>
+                  <span class="p">)</span>
+
+        <span class="c1"># Update authToken</span>
+        <span class="n">queryString</span> <span class="o">=</span> <span class="s2">&quot;UPDATE user SET authToken=</span><span class="si">%s</span><span class="s2"> WHERE email=</span><span class="si">%s</span><span class="s2">&quot;</span>
+        <span class="n">cursor</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">queryString</span><span class="p">,</span> <span class="p">(</span><span class="n">authToken</span><span class="p">,</span><span class="n">credentials</span><span class="p">[</span><span class="s1">&#39;email&#39;</span><span class="p">]))</span>
+
+        <span class="c1"># Log user in</span>
+        <span class="n">session</span><span class="p">[</span><span class="s2">&quot;loggedin&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="n">session</span><span class="p">[</span><span class="s2">&quot;authToken&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">authToken</span>
+        <span class="k">return</span> <span class="n">jsonify</span><span class="p">({</span><span class="s2">&quot;status&quot;</span> <span class="p">:</span> <span class="s2">&quot;success&quot;</span><span class="p">})</span>
+  <span class="k">else</span><span class="p">:</span>
+    <span class="k">return</span> <span class="n">jsonify</span><span class="p">({</span><span class="s2">&quot;status&quot;</span> <span class="p">:</span> <span class="s2">&quot;unauthorized - a user is already logged in&quot;</span><span class="p">})</span></div>
+
+
+<div class="viewcode-block" id="accountSignup"><a class="viewcode-back" href="../app.html#app.accountSignup">[docs]</a><span class="nd">@app</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s2">&quot;/account/signup&quot;</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;POST&quot;</span><span class="p">])</span>
+<span class="k">def</span> <span class="nf">accountSignup</span><span class="p">():</span>
+  <span class="sd">&quot;&quot;&quot;</span>
+
+
+<span class="sd">    Description: Creates a new account.</span>
+
+<span class="sd">    Endpoint: </span>
+<span class="sd">    - /account/signup</span>
+
+<span class="sd">    Headers:</span>
+<span class="sd">    - none</span>
+
+<span class="sd">    Parameters GET:</span>
+<span class="sd">    - none</span>
+
+<span class="sd">    Parameters POST:</span>
+<span class="sd">    - name</span>
+<span class="sd">    - email</span>
+<span class="sd">    - password</span>
+
+<span class="sd">    Parameters PUT:</span>
+<span class="sd">    - none</span>
+
+<span class="sd">    Parameters DELETE:</span>
+<span class="sd">    - none</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">    - 200 OK ( {&quot;status&quot; : &quot;success&quot;} )</span>
+<span class="sd">    - 400 Bad Request ( {&quot;status&quot; : &quot;bad request&quot;} )</span>
+
+
+<span class="sd">  &quot;&quot;&quot;</span>
+
+  <span class="c1"># Get the JSON containing the user input</span>
+  <span class="n">credentials</span><span class="o">=</span><span class="n">request</span><span class="o">.</span><span class="n">get_json</span><span class="p">()</span>
+
+  <span class="c1"># Database connection</span>
+  <span class="n">db</span>     <span class="o">=</span> <span class="n">db_connection</span><span class="p">()</span>
+  <span class="n">mydb</span>   <span class="o">=</span> <span class="n">db</span><span class="p">[</span><span class="s2">&quot;mydb&quot;</span><span class="p">]</span>
+  <span class="n">cursor</span> <span class="o">=</span> <span class="n">db</span><span class="p">[</span><span class="s2">&quot;mycursor&quot;</span><span class="p">]</span>
+
+  <span class="c1"># User input validation</span>
+  <span class="k">if</span> <span class="ow">not</span> <span class="n">credentials</span><span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">]</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">credentials</span><span class="p">[</span><span class="s2">&quot;email&quot;</span><span class="p">]</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">credentials</span><span class="p">[</span><span class="s2">&quot;password&quot;</span><span class="p">]:</span>
+    <span class="k">return</span> <span class="n">jsonify</span><span class="p">({</span><span class="s2">&quot;status&quot;</span><span class="p">:</span><span class="s2">&quot;bad request - missing parameters&quot;</span><span class="p">})</span>
+
+  <span class="c1"># SQL Query to obtain all emails</span>
+  <span class="n">queryString</span> <span class="o">=</span> <span class="s2">&quot;SELECT email FROM user WHERE email=</span><span class="si">%s</span><span class="s2">&quot;</span>
+  <span class="n">cursor</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">queryString</span><span class="p">,</span> <span class="p">(</span><span class="n">credentials</span><span class="p">[</span><span class="s1">&#39;email&#39;</span><span class="p">],))</span>
+  <span class="n">myresult</span> <span class="o">=</span> <span class="n">cursor</span><span class="o">.</span><span class="n">fetchall</span><span class="p">()</span>
+
+  <span class="c1"># Password must contain 8 characters, 1 capital, 1 lower case, 1 number and 1 special symbol (At least)</span>
+  <span class="n">pwdRegex</span>   <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s1">&#39;^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*#?&amp;])[A-Za-z\d@$!#%*?&amp;]{8,}$&#39;</span><span class="p">)</span>
+  <span class="n">emailRegex</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s1">&#39;\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b&#39;</span><span class="p">)</span>
+  <span class="n">nameRegex</span>  <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s1">&#39;[A-Za-z]{2,}&#39;</span><span class="p">)</span>
+
+  <span class="k">if</span> <span class="ow">not</span> <span class="n">nameRegex</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="n">credentials</span><span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">]):</span>
+    <span class="k">return</span> <span class="n">jsonify</span><span class="p">({</span><span class="s2">&quot;status&quot;</span><span class="p">:</span><span class="s2">&quot;bad request - invalid name&quot;</span><span class="p">})</span>
+  <span class="k">elif</span> <span class="ow">not</span> <span class="n">emailRegex</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="n">credentials</span><span class="p">[</span><span class="s2">&quot;email&quot;</span><span class="p">]):</span>
+    <span class="k">return</span> <span class="n">jsonify</span><span class="p">({</span><span class="s2">&quot;status&quot;</span><span class="p">:</span><span class="s2">&quot;bad request - invalid email&quot;</span><span class="p">})</span>
+  <span class="k">elif</span> <span class="ow">not</span> <span class="n">pwdRegex</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="n">credentials</span><span class="p">[</span><span class="s2">&quot;password&quot;</span><span class="p">]):</span>
+    <span class="k">return</span> <span class="n">jsonify</span><span class="p">({</span><span class="s2">&quot;status&quot;</span><span class="p">:</span><span class="s2">&quot;bad request - invalid password&quot;</span><span class="p">})</span>
+  <span class="k">else</span><span class="p">:</span>
+
+    <span class="c1"># Verify if email already exists</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">myresult</span><span class="p">)</span><span class="o">&gt;</span><span class="mi">0</span><span class="p">:</span>
+      <span class="k">return</span> <span class="n">jsonify</span><span class="p">({</span><span class="s2">&quot;status&quot;</span><span class="p">:</span><span class="sa">f</span><span class="s2">&quot;bad request - email already exists (</span><span class="si">{</span><span class="n">credentials</span><span class="p">[</span><span class="s1">&#39;email&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">})</span>
+    <span class="k">else</span><span class="p">:</span>
+
+      <span class="c1"># Encrypt the password using sha256</span>
+      <span class="n">encryptedPassword</span> <span class="o">=</span> <span class="n">generate_password_hash</span><span class="p">(</span><span class="n">credentials</span><span class="p">[</span><span class="s1">&#39;password&#39;</span><span class="p">],</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;sha256&#39;</span><span class="p">)</span>
+
+      <span class="c1"># Generate AuthToken</span>
+      <span class="n">payload</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="s1">&#39;exp&#39;</span><span class="p">:</span> <span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span> <span class="o">+</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">days</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">seconds</span><span class="o">=</span><span class="mi">5</span><span class="p">),</span>
+                <span class="s1">&#39;iat&#39;</span><span class="p">:</span> <span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">(),</span>
+                <span class="s1">&#39;sub&#39;</span><span class="p">:</span> <span class="n">credentials</span><span class="p">[</span><span class="s1">&#39;email&#39;</span><span class="p">]</span>
+                <span class="p">}</span>
+      <span class="n">authToken</span> <span class="o">=</span> <span class="n">jwt</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span>
+                <span class="n">payload</span><span class="p">,</span>
+                <span class="n">config</span><span class="p">(</span><span class="s1">&#39;APP_SECRET_KEY&#39;</span><span class="p">),</span>
+                <span class="n">algorithm</span><span class="o">=</span><span class="s1">&#39;HS256&#39;</span>
+                <span class="p">)</span>
+
+      <span class="c1"># Register the new user into the database</span>
+      <span class="n">queryString</span> <span class="o">=</span> <span class="s2">&quot;INSERT INTO user (name, password, email, idRole, authToken) VALUES(</span><span class="si">%s</span><span class="s2">, </span><span class="si">%s</span><span class="s2">, </span><span class="si">%s</span><span class="s2">, 1, </span><span class="si">%s</span><span class="s2">)&quot;</span>
+      <span class="n">cursor</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">queryString</span><span class="p">,</span> <span class="p">(</span><span class="n">credentials</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">],</span> <span class="n">encryptedPassword</span><span class="p">,</span> <span class="n">credentials</span><span class="p">[</span><span class="s1">&#39;email&#39;</span><span class="p">],</span> <span class="n">authToken</span><span class="p">))</span>
+      <span class="n">mydb</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+
+      <span class="c1"># Log the newly created user in</span>
+      <span class="n">session</span><span class="p">[</span><span class="s2">&quot;loggedin&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+      <span class="n">session</span><span class="p">[</span><span class="s2">&quot;authToken&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">authToken</span>
+
+      <span class="k">return</span> <span class="n">jsonify</span><span class="p">({</span><span class="s2">&quot;status&quot;</span><span class="p">:</span><span class="s2">&quot;account created successfully&quot;</span><span class="p">})</span></div>
+
+
+<div class="viewcode-block" id="accountForgot"><a class="viewcode-back" href="../app.html#app.accountForgot">[docs]</a><span class="nd">@app</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s2">&quot;/account/forgot&quot;</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;GET&quot;</span><span class="p">])</span>
+<span class="nd">@app</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s2">&quot;/account/forgot/&lt;resetToken&gt;&quot;</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;POST&quot;</span><span class="p">])</span>
+<span class="k">def</span> <span class="nf">accountForgot</span><span class="p">(</span><span class="n">resetToken</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+  <span class="sd">&quot;&quot;&quot;</span>
+
+
+<span class="sd">    Description: Allows user to recover their lost password. Allows GET and POST methods. GET -&gt; Receives an email to which a message will be sent with a link to insert the new password. POST -&gt; Allows the user to insert the new password, updating the database</span>
+
+<span class="sd">    Endpoint: </span>
+<span class="sd">    - (GET) /account/forgot </span>
+<span class="sd">    - (POST) /accout/forgot/&lt;token&gt; </span>
+
+<span class="sd">    Headers:</span>
+<span class="sd">    - none</span>
+
+<span class="sd">    Parameters GET:</span>
+<span class="sd">    - email</span>
+
+<span class="sd">    Parameters POST:</span>
+<span class="sd">    - email</span>
+<span class="sd">    - password</span>
+
+<span class="sd">    Parameters PUT:</span>
+<span class="sd">    - none</span>
+
+<span class="sd">    Parameters DELETE:</span>
+<span class="sd">    - none</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">      200 OK ( {&quot;status&quot; : &quot;success&quot;} )</span>
+<span class="sd">      400 Bad Request ( {&quot;status&quot; : &quot;bad request&quot;} )</span>
+
+
+<span class="sd">  &quot;&quot;&quot;</span>
+
+  <span class="k">if</span> <span class="n">request</span><span class="o">.</span><span class="n">method</span><span class="o">==</span><span class="s2">&quot;GET&quot;</span><span class="p">:</span>
+    <span class="c1"># Get the JSON containing the user input</span>
+    <span class="n">credentials</span><span class="o">=</span><span class="n">request</span><span class="o">.</span><span class="n">get_json</span><span class="p">()</span>
+
+    <span class="c1"># User input validation</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">credentials</span><span class="p">[</span><span class="s2">&quot;email&quot;</span><span class="p">]:</span>
+      <span class="k">return</span> <span class="n">jsonify</span><span class="p">({</span><span class="s2">&quot;status&quot;</span><span class="p">:</span><span class="s2">&quot;bad request - missing parameters&quot;</span><span class="p">})</span>
+
+    <span class="c1"># Database connection</span>
+    <span class="n">db</span>     <span class="o">=</span> <span class="n">db_connection</span><span class="p">()</span>
+    <span class="n">mydb</span>   <span class="o">=</span> <span class="n">db</span><span class="p">[</span><span class="s2">&quot;mydb&quot;</span><span class="p">]</span>
+    <span class="n">cursor</span> <span class="o">=</span> <span class="n">db</span><span class="p">[</span><span class="s2">&quot;mycursor&quot;</span><span class="p">]</span>
+
+    <span class="c1"># Check if email exists</span>
+    <span class="n">queryString</span> <span class="o">=</span> <span class="s2">&quot;SELECT email FROM user WHERE email=</span><span class="si">%s</span><span class="s2">&quot;</span>
+    <span class="n">cursor</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">queryString</span><span class="p">,</span> <span class="p">(</span><span class="n">credentials</span><span class="p">[</span><span class="s1">&#39;email&#39;</span><span class="p">],))</span>
+    <span class="n">results</span> <span class="o">=</span> <span class="n">cursor</span><span class="o">.</span><span class="n">fetchall</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">results</span><span class="p">)</span><span class="o">&lt;</span><span class="mi">1</span><span class="p">:</span>
+      <span class="k">return</span> <span class="n">jsonify</span><span class="p">({</span><span class="s2">&quot;status&quot;</span><span class="p">:</span><span class="s2">&quot;bad request - email does not exist&quot;</span><span class="p">})</span>
+
+    <span class="c1"># Send email with link to recover password</span>
+    <span class="n">email</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">credentials</span><span class="p">[</span><span class="s1">&#39;email&#39;</span><span class="p">])</span>
+
+    <span class="n">token</span> <span class="o">=</span> <span class="n">tokenSerial</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">email</span><span class="p">,</span> <span class="n">salt</span><span class="o">=</span><span class="s1">&#39;reset_password&#39;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">send_reset_email</span><span class="p">(</span><span class="n">email</span><span class="p">):</span>
+
+      <span class="n">msg</span> <span class="o">=</span> <span class="n">Message</span><span class="p">(</span><span class="s1">&#39;Password Reset Request&#39;</span><span class="p">,</span> <span class="n">sender</span><span class="o">=</span><span class="p">(</span><span class="s1">&#39;ISEP Indoor Mapping&#39;</span><span class="p">,</span> <span class="s2">&quot;test@gmail.com&quot;</span><span class="p">),</span> <span class="n">recipients</span><span class="o">=</span><span class="p">[</span><span class="n">email</span><span class="p">])</span>
+
+      <span class="c1">#url = f&quot;http://127.0.0.1:5000/account/forgot/{token}&quot;</span>
+      <span class="n">url</span> <span class="o">=</span> <span class="n">url_for</span><span class="p">(</span><span class="s1">&#39;accountForgot&#39;</span><span class="p">,</span> <span class="n">resetToken</span><span class="o">=</span><span class="n">token</span><span class="p">,</span> <span class="n">_external</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+      <span class="n">msg</span><span class="o">.</span><span class="n">body</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;&#39;&#39;To reset your password, visit the following link:</span><span class="se">\n</span><span class="si">{</span><span class="n">url</span><span class="si">}</span><span class="se">\n</span><span class="s1">If you did not make this request then simply ignore this email and no changes will be made.&#39;&#39;&#39;</span>
+
+      <span class="n">mail</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+
+    <span class="n">send_reset_email</span><span class="p">(</span><span class="n">email</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">jsonify</span><span class="p">({</span><span class="s2">&quot;status&quot;</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;success - sent email to </span><span class="si">{</span><span class="n">email</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">})</span>
+
+  <span class="k">if</span> <span class="n">request</span><span class="o">.</span><span class="n">method</span><span class="o">==</span><span class="s2">&quot;POST&quot;</span><span class="p">:</span>
+
+    <span class="c1"># Get the JSON containing the user input</span>
+    <span class="n">credentials</span><span class="o">=</span><span class="n">request</span><span class="o">.</span><span class="n">get_json</span><span class="p">()</span>
+
+    <span class="c1"># User input validation</span>
+    <span class="k">if</span> <span class="n">resetToken</span> <span class="o">==</span> <span class="kc">None</span><span class="p">:</span>
+      <span class="k">return</span> <span class="n">jsonify</span><span class="p">({</span><span class="s2">&quot;status&quot;</span><span class="p">:</span><span class="sa">f</span><span class="s2">&quot;bad request - missing token - </span><span class="si">{</span><span class="n">resetToken</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">})</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">credentials</span><span class="p">[</span><span class="s2">&quot;password&quot;</span><span class="p">]:</span>
+      <span class="k">return</span> <span class="n">jsonify</span><span class="p">({</span><span class="s2">&quot;status&quot;</span><span class="p">:</span><span class="s2">&quot;bad request - missing parameters&quot;</span><span class="p">})</span>
+
+    <span class="c1"># Database connection</span>
+    <span class="n">db</span>     <span class="o">=</span> <span class="n">db_connection</span><span class="p">()</span>
+    <span class="n">mydb</span>   <span class="o">=</span> <span class="n">db</span><span class="p">[</span><span class="s2">&quot;mydb&quot;</span><span class="p">]</span>
+    <span class="n">cursor</span> <span class="o">=</span> <span class="n">db</span><span class="p">[</span><span class="s2">&quot;mycursor&quot;</span><span class="p">]</span>
+
+    <span class="k">try</span><span class="p">:</span>
+      <span class="n">email</span> <span class="o">=</span> <span class="n">tokenSerial</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">resetToken</span><span class="p">,</span> <span class="n">salt</span><span class="o">=</span><span class="s1">&#39;reset_password&#39;</span><span class="p">,</span> <span class="n">max_age</span><span class="o">=</span><span class="mi">3600</span><span class="p">)</span> <span class="c1"># Expires after 1 hour</span>
+      <span class="n">encryptedPassword</span> <span class="o">=</span> <span class="n">generate_password_hash</span><span class="p">(</span><span class="n">credentials</span><span class="p">[</span><span class="s2">&quot;password&quot;</span><span class="p">],</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;sha256&#39;</span><span class="p">)</span>
+
+      <span class="n">queryString</span> <span class="o">=</span> <span class="s2">&quot;UPDATE user SET password=</span><span class="si">%s</span><span class="s2"> WHERE email=</span><span class="si">%s</span><span class="s2">&quot;</span>
+      <span class="n">cursor</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">queryString</span><span class="p">,</span> <span class="p">(</span><span class="n">encryptedPassword</span><span class="p">,</span> <span class="n">email</span><span class="p">))</span>
+      <span class="n">mydb</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+    <span class="k">except</span><span class="p">:</span>
+      <span class="k">return</span> <span class="n">jsonify</span><span class="p">({</span><span class="s2">&quot;status&quot;</span><span class="p">:</span><span class="sa">f</span><span class="s2">&quot;bad request - token expired </span><span class="si">{</span><span class="n">resetToken</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">})</span>
+
+    <span class="k">return</span> <span class="n">jsonify</span><span class="p">({</span><span class="s2">&quot;status&quot;</span><span class="p">:</span><span class="sa">f</span><span class="s2">&quot;success - </span><span class="si">{</span><span class="n">email</span><span class="si">}</span><span class="s2"> password updated&quot;</span><span class="p">})</span></div>
+
+
+<div class="viewcode-block" id="accountLogout"><a class="viewcode-back" href="../app.html#app.accountLogout">[docs]</a><span class="nd">@app</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s2">&quot;/account/logout&quot;</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;PUT&quot;</span><span class="p">])</span>
+<span class="k">def</span> <span class="nf">accountLogout</span><span class="p">():</span>
+  <span class="sd">&quot;&quot;&quot;</span>
+
+
+<span class="sd">    Description: Logs the current user out.</span>
+
+<span class="sd">    Endpoint: </span>
+<span class="sd">    - /account/logout</span>
+
+<span class="sd">    Headers:</span>
+<span class="sd">    - none</span>
+
+<span class="sd">    Parameters GET:</span>
+<span class="sd">    - none</span>
+
+<span class="sd">    Parameters POST:</span>
+<span class="sd">    - none</span>
+
+<span class="sd">    Parameters PUT:</span>
+<span class="sd">    - none</span>
+
+<span class="sd">    Parameters DELETE:</span>
+<span class="sd">    - none</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">    - 200 OK ( {&quot;status&quot; : &quot;success&quot;} )</span>
+<span class="sd">    - 401 Unauthorized ( {&quot;status&quot; : &quot;unauthorized&quot;} )</span>
+
+
+<span class="sd">  &quot;&quot;&quot;</span>
+
+  <span class="c1"># Checks if the user is logged in</span>
+  <span class="k">if</span> <span class="s2">&quot;loggedin&quot;</span> <span class="ow">in</span> <span class="n">session</span><span class="p">:</span>
+    <span class="c1"># Deletes the session cookie</span>
+    <span class="n">session</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;loggedin&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="n">session</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;authToken&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">jsonify</span><span class="p">({</span><span class="s2">&quot;status&quot;</span> <span class="p">:</span> <span class="s2">&quot;success&quot;</span><span class="p">})</span>
+  <span class="k">else</span><span class="p">:</span>
+    <span class="k">return</span> <span class="n">jsonify</span><span class="p">({</span><span class="s2">&quot;status&quot;</span> <span class="p">:</span> <span class="s2">&quot;unauthorized - no logged in user&quot;</span><span class="p">})</span></div>
+
+
+<span class="c1"># andre g.</span>
+<div class="viewcode-block" id="searchBeacon"><a class="viewcode-back" href="../app.html#app.searchBeacon">[docs]</a><span class="nd">@app</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s2">&quot;/search/beacons/&lt;id&gt;&quot;</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;GET&quot;</span><span class="p">])</span>
+<span class="k">def</span> <span class="nf">searchBeacon</span><span class="p">(</span><span class="nb">id</span><span class="p">):</span>
+  <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">      </span>
+
+<span class="sd">    Description: Returns information about one specific beacon</span>
+
+<span class="sd">    Endpoint: </span>
+<span class="sd">    - /search/beacons/&lt;id&gt;</span>
+
+<span class="sd">    Headers:</span>
+<span class="sd">    - none</span>
+
+<span class="sd">    Parameters GET:</span>
+<span class="sd">    - none</span>
+
+<span class="sd">    Parameters POST:</span>
+<span class="sd">    - none</span>
+
+<span class="sd">    Parameters PUT:</span>
+<span class="sd">    - none</span>
+
+<span class="sd">    Parameters DELETE:</span>
+<span class="sd">    - none</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">    - 200 OK ( {&quot;idDevice&quot;:&quot;&quot;, &quot;idClassroom&quot;:&quot;&quot;, &quot;x&quot;:&quot;&quot;, &quot;y&quot;:&quot;&quot;, &quot;z&quot;:&quot;&quot;} )</span>
+<span class="sd">    - 401 Unauthorized ( {&quot;status&quot; : &quot;unauthorized&quot;} )</span>
+
+
+<span class="sd">  &quot;&quot;&quot;</span>
+
+  <span class="c1">#Connect to database</span>
+  <span class="n">db_obj</span><span class="o">=</span><span class="n">db_connection</span><span class="p">()</span>
+  <span class="n">mydb</span><span class="o">=</span><span class="n">db_obj</span><span class="p">[</span><span class="s2">&quot;mydb&quot;</span><span class="p">]</span>
+  <span class="n">mycursor</span><span class="o">=</span><span class="n">db_obj</span><span class="p">[</span><span class="s2">&quot;mycursor&quot;</span><span class="p">]</span>
+
+  <span class="c1">#Variavels</span>
+  <span class="n">query_string</span><span class="o">=</span><span class="s2">&quot;SELECT * FROM beacon WHERE id=</span><span class="si">%s</span><span class="s2">&quot;</span>
+
+  <span class="c1">#Execute search cammand</span>
+  <span class="n">mycursor</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">query_string</span><span class="p">,</span> <span class="p">(</span><span class="nb">id</span><span class="p">,))</span>
+
+  <span class="c1">#Save result</span>
+  <span class="n">myresult</span><span class="o">=</span><span class="n">mycursor</span><span class="o">.</span><span class="n">fetchall</span><span class="p">()</span>
+
+  <span class="c1">#Cheaking if it exists</span>
+  <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">myresult</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+    <span class="k">return</span> <span class="n">jsonify</span><span class="p">({</span><span class="s2">&quot;status&quot;</span><span class="p">:</span><span class="s2">&quot;Not Found - This beacon was not found&quot;</span><span class="p">})</span>
+
+  <span class="c1">#Beacon array</span>
+  <span class="n">beacon</span><span class="o">=</span><span class="p">{}</span>
+  <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">myresult</span><span class="p">:</span>
+    <span class="n">beacon</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;idDevice&quot;</span><span class="p">:</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="s2">&quot;idClassroom&quot;</span><span class="p">:</span><span class="n">x</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="s2">&quot;x&quot;</span><span class="p">:</span><span class="n">x</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span> <span class="s2">&quot;y&quot;</span><span class="p">:</span><span class="n">x</span><span class="p">[</span><span class="mi">4</span><span class="p">],</span> <span class="s2">&quot;z&quot;</span><span class="p">:</span><span class="n">x</span><span class="p">[</span><span class="mi">5</span><span class="p">]}</span>
+
+  <span class="k">return</span> <span class="n">jsonify</span><span class="p">(</span><span class="n">beacon</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="beaconsOperation"><a class="viewcode-back" href="../app.html#app.beaconsOperation">[docs]</a><span class="nd">@app</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s2">&quot;/map/beacons&quot;</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;GET&quot;</span><span class="p">,</span> <span class="s2">&quot;POST&quot;</span><span class="p">,</span> <span class="s2">&quot;PUT&quot;</span><span class="p">])</span>
+<span class="k">def</span> <span class="nf">beaconsOperation</span><span class="p">():</span>
+  <span class="sd">&quot;&quot;&quot;</span>
+
+
+<span class="sd">    Description: returns all the beacons in the map</span>
+
+<span class="sd">    Endpoint: </span>
+<span class="sd">    - /map/beacons</span>
+<span class="sd">    Headers:</span>
+<span class="sd">    - (POST / PUT) authToken</span>
+
+<span class="sd">    Parameters GET:</span>
+<span class="sd">    - none</span>
+
+<span class="sd">    Parameters POST:</span>
+<span class="sd">    - idDevice</span>
+<span class="sd">    - IdClassroom</span>
+<span class="sd">    - x</span>
+<span class="sd">    - y</span>
+<span class="sd">    - z</span>
+
+<span class="sd">    Parameters PUT:</span>
+<span class="sd">    - beaconId : mandatory</span>
+<span class="sd">    - beaconName : optional</span>
+<span class="sd">    - classroomId : optional</span>
+<span class="sd">    - x : optional</span>
+<span class="sd">    - y : optional</span>
+<span class="sd">    - z : optional</span>
+
+<span class="sd">    Parameters DELETE:</span>
+<span class="sd">    - none</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">    - 200 OK ( {&quot;status&quot; : &quot;success&quot;} )</span>
+<span class="sd">    - 400 Unauthorized ( {&quot;status&quot;:&quot;bad request - missing parameters; at least 2 parameters; beaconId is mandatory&quot;} )</span>
+<span class="sd">    - 403 Unauthorized ( {&quot;status&quot;:&quot;bad request - no permission&quot;} )</span>
+
+
+<span class="sd">  &quot;&quot;&quot;</span>
+  <span class="c1">#Connect to database</span>
+  <span class="n">db_obj</span><span class="o">=</span><span class="n">db_connection</span><span class="p">()</span>
+  <span class="n">mydb</span><span class="o">=</span><span class="n">db_obj</span><span class="p">[</span><span class="s2">&quot;mydb&quot;</span><span class="p">]</span>
+  <span class="n">mycursor</span><span class="o">=</span><span class="n">db_obj</span><span class="p">[</span><span class="s2">&quot;mycursor&quot;</span><span class="p">]</span>
+
+  <span class="k">if</span> <span class="n">request</span><span class="o">.</span><span class="n">method</span><span class="o">==</span><span class="s2">&quot;GET&quot;</span><span class="p">:</span>
+    <span class="n">sql_query</span><span class="o">=</span><span class="s2">&quot;SELECT beacon.id, beacon.idDevice, beacon.x, beacon.y, beacon.z, classroom.id, classroom.name FROM beacon INNER JOIN classroom ON classroom.id=beacon.idClassroom&quot;</span>
+    <span class="n">mycursor</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">sql_query</span><span class="p">)</span>
+    <span class="n">myresult</span><span class="o">=</span><span class="n">mycursor</span><span class="o">.</span><span class="n">fetchall</span><span class="p">()</span>
+
+    <span class="n">retorno</span><span class="o">=</span><span class="p">[]</span>
+    <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">myresult</span><span class="p">:</span>
+      <span class="n">retorno</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s2">&quot;beaconId&quot;</span><span class="p">:</span><span class="n">b</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="s2">&quot;beaconName&quot;</span><span class="p">:</span><span class="n">b</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="s2">&quot;x&quot;</span><span class="p">:</span><span class="n">b</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="s2">&quot;y&quot;</span><span class="p">:</span><span class="n">b</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span> <span class="s2">&quot;z&quot;</span><span class="p">:</span><span class="n">b</span><span class="p">[</span><span class="mi">4</span><span class="p">],</span> <span class="s2">&quot;classroomId&quot;</span><span class="p">:</span><span class="n">b</span><span class="p">[</span><span class="mi">5</span><span class="p">],</span> <span class="s2">&quot;classroomName&quot;</span><span class="p">:</span><span class="n">b</span><span class="p">[</span><span class="mi">6</span><span class="p">]})</span>
+
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">retorno</span><span class="p">)</span><span class="o">&gt;</span><span class="mi">0</span><span class="p">:</span>
+      <span class="k">return</span> <span class="n">jsonify</span><span class="p">({</span><span class="s2">&quot;beacons&quot;</span><span class="p">:</span> <span class="n">retorno</span><span class="p">})</span>
+    <span class="k">else</span><span class="p">:</span>
+      <span class="k">return</span> <span class="n">jsonify</span><span class="p">({</span><span class="s2">&quot;status&quot;</span><span class="p">:</span> <span class="s2">&quot;no beacons to show&quot;</span><span class="p">})</span>
+
+  <span class="k">if</span> <span class="n">request</span><span class="o">.</span><span class="n">method</span><span class="o">==</span><span class="s2">&quot;POST&quot;</span><span class="p">:</span>
+    <span class="c1">#Get data from request</span>
+    <span class="n">parameters</span><span class="o">=</span><span class="n">request</span><span class="o">.</span><span class="n">get_json</span><span class="p">()</span>
+
+    <span class="c1"># check if user is an admin</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">request</span><span class="o">.</span><span class="n">headers</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;authToken&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">checkUserAdmin</span><span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">headers</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;authToken&quot;</span><span class="p">)):</span>
+      <span class="k">return</span> <span class="n">jsonify</span><span class="p">({</span><span class="s2">&quot;status&quot;</span><span class="p">:</span><span class="s2">&quot;bad request - no permission&quot;</span><span class="p">})</span>
+
+    <span class="c1">#Check if parameters where inputed correctly</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;idDevice&quot;</span><span class="p">]</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;IdClassroom&quot;</span><span class="p">]</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;x&quot;</span><span class="p">]</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;y&quot;</span><span class="p">]</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;z&quot;</span><span class="p">]:</span>
+      <span class="k">return</span> <span class="n">jsonify</span><span class="p">({</span><span class="s2">&quot;status&quot;</span><span class="p">:</span><span class="s2">&quot;bad request - missing parameters&quot;</span><span class="p">})</span>
+
+    <span class="c1">#MySQL cammand</span>
+    <span class="n">query_string</span><span class="o">=</span><span class="s2">&quot;INSERT INTO beacon (idDevice, IdClassroom, x, y, z) VALUES (</span><span class="si">%s</span><span class="s2">, </span><span class="si">%s</span><span class="s2">, </span><span class="si">%s</span><span class="s2">, </span><span class="si">%s</span><span class="s2">, </span><span class="si">%s</span><span class="s2">)&quot;</span>
+    <span class="sd">&quot;&quot;&quot;search_idclassroom_query=&quot;SELECT IdClassroom FROM beacon WHERE IdClassroom=%s&quot;</span>
+<span class="sd">    check_iddevice_query=&quot;SELECT idDevice FROM beacon&quot;&quot;&quot;</span>
+    <span class="n">query_getData</span><span class="o">=</span><span class="s2">&quot;SELECT * FROM beacon&quot;</span>
+
+    <span class="c1">#Get Data</span>
+    <span class="n">mycursor</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">query_getData</span><span class="p">)</span>
+    <span class="n">myresult</span><span class="o">=</span><span class="n">mycursor</span><span class="o">.</span><span class="n">fetchall</span><span class="p">()</span>
+
+    <span class="c1">#Check if beacon exists</span>
+    <span class="k">for</span> <span class="n">y</span> <span class="ow">in</span> <span class="n">myresult</span><span class="p">:</span>
+      <span class="nb">print</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
+      <span class="k">if</span> <span class="n">y</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;idDevice&quot;</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="n">jsonify</span><span class="p">({</span><span class="s2">&quot;status&quot;</span><span class="p">:</span><span class="s2">&quot;bad request - This device already is being used&quot;</span><span class="p">})</span>
+      <span class="k">elif</span> <span class="n">y</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span> <span class="o">==</span> <span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;x&quot;</span><span class="p">]</span> <span class="ow">and</span> <span class="n">y</span><span class="p">[</span><span class="mi">4</span><span class="p">]</span> <span class="o">==</span> <span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;y&quot;</span><span class="p">]</span> <span class="ow">and</span> <span class="n">y</span><span class="p">[</span><span class="mi">5</span><span class="p">]</span> <span class="o">==</span> <span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;z&quot;</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="n">jsonify</span><span class="p">({</span><span class="s2">&quot;status&quot;</span><span class="p">:</span><span class="sa">f</span><span class="s2">&quot;bad request - A beacon with these coordinates x:(</span><span class="si">{</span><span class="n">parameters</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">), y:(</span><span class="si">{</span><span class="n">parameters</span><span class="p">[</span><span class="s1">&#39;y&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">) and z:(</span><span class="si">{</span><span class="n">parameters</span><span class="p">[</span><span class="s1">&#39;z&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">) already exists&quot;</span><span class="p">})</span>
+
+    <span class="c1">#Execute insert cammand</span>
+    <span class="n">mycursor</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">query_string</span><span class="p">,</span> <span class="p">(</span><span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;idDevice&quot;</span><span class="p">],</span> <span class="nb">int</span><span class="p">(</span><span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;IdClassroom&quot;</span><span class="p">]),</span> <span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;x&quot;</span><span class="p">],</span> <span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;y&quot;</span><span class="p">],</span> <span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;z&quot;</span><span class="p">]))</span>
+    <span class="n">mydb</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+
+    <span class="c1">#Check if the new beacon was added</span>
+    <span class="n">query_confirm_id</span><span class="o">=</span><span class="s2">&quot;SELECT id FROM beacon WHERE idDevice=</span><span class="si">%s</span><span class="s2"> AND IdClassroom=</span><span class="si">%s</span><span class="s2">&quot;</span>
+    <span class="n">mycursor</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">query_confirm_id</span><span class="p">,</span> <span class="p">(</span><span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;idDevice&quot;</span><span class="p">],</span> <span class="nb">int</span><span class="p">(</span><span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;IdClassroom&quot;</span><span class="p">])))</span>
+    <span class="n">mysearchresult</span><span class="o">=</span><span class="n">mycursor</span><span class="o">.</span><span class="n">fetchall</span><span class="p">()</span>
+
+    <span class="c1">#Check if it was found</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">mysearchresult</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
+      <span class="k">return</span> <span class="n">jsonify</span><span class="p">({</span><span class="s2">&quot;status&quot;</span><span class="p">:</span><span class="s2">&quot;Error - Beacon wasn&#39;t haded&quot;</span><span class="p">})</span>
+
+    <span class="k">return</span> <span class="n">jsonify</span><span class="p">({</span><span class="s2">&quot;beaaconId&quot;</span><span class="p">:</span> <span class="n">mysearchresult</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]})</span>
+
+  <span class="k">if</span> <span class="n">request</span><span class="o">.</span><span class="n">method</span><span class="o">==</span><span class="s2">&quot;PUT&quot;</span><span class="p">:</span>
+    <span class="n">parameters</span><span class="o">=</span><span class="n">request</span><span class="o">.</span><span class="n">get_json</span><span class="p">()</span>
+
+    <span class="c1"># check if user is an admin</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">request</span><span class="o">.</span><span class="n">headers</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;authToken&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">checkUserAdmin</span><span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">headers</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;authToken&quot;</span><span class="p">)):</span>
+      <span class="k">return</span> <span class="n">jsonify</span><span class="p">({</span><span class="s2">&quot;status&quot;</span><span class="p">:</span><span class="s2">&quot;bad request - no permission&quot;</span><span class="p">})</span>
+
+    <span class="c1">#Check if parameters where inputed correctly</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;beaconId&quot;</span><span class="p">]</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">parameters</span><span class="p">)</span><span class="o">&lt;</span><span class="mi">2</span><span class="p">:</span>
+      <span class="k">return</span> <span class="n">jsonify</span><span class="p">({</span><span class="s2">&quot;status&quot;</span><span class="p">:</span><span class="s2">&quot;bad request - missing parameters; at least 2 parameters; beaconId is mandatory&quot;</span><span class="p">})</span>
+
+    <span class="n">query_update</span><span class="o">=</span><span class="s2">&quot;UPDATE beacon SET id=id&quot;</span>
+    <span class="n">query_param</span><span class="o">=</span><span class="p">()</span>
+
+    <span class="c1"># add parameters to database</span>
+    <span class="k">if</span> <span class="s2">&quot;beaconName&quot;</span> <span class="ow">in</span> <span class="n">parameters</span><span class="p">:</span>
+      <span class="n">query_update</span><span class="o">+=</span><span class="s2">&quot;, idDevice=</span><span class="si">%s</span><span class="s2">&quot;</span>
+      <span class="n">query_param</span><span class="o">+=</span><span class="p">(</span><span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;beaconName&quot;</span><span class="p">],)</span>
+
+    <span class="k">if</span> <span class="s2">&quot;classroomId&quot;</span> <span class="ow">in</span> <span class="n">parameters</span><span class="p">:</span>
+      <span class="n">query_update</span><span class="o">+=</span><span class="s2">&quot;, idClassroom=</span><span class="si">%s</span><span class="s2">&quot;</span>
+      <span class="n">query_param</span><span class="o">+=</span><span class="p">(</span><span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;classroomId&quot;</span><span class="p">],)</span>
+
+    <span class="k">if</span> <span class="s2">&quot;x&quot;</span> <span class="ow">in</span> <span class="n">parameters</span><span class="p">:</span>
+      <span class="n">query_update</span><span class="o">+=</span><span class="s2">&quot;, x=</span><span class="si">%s</span><span class="s2">&quot;</span>
+      <span class="n">query_param</span><span class="o">+=</span><span class="p">(</span><span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;x&quot;</span><span class="p">],)</span>
+
+    <span class="k">if</span> <span class="s2">&quot;y&quot;</span> <span class="ow">in</span> <span class="n">parameters</span><span class="p">:</span>
+      <span class="n">query_update</span><span class="o">+=</span><span class="s2">&quot;, y=</span><span class="si">%s</span><span class="s2">&quot;</span>
+      <span class="n">query_param</span><span class="o">+=</span><span class="p">(</span><span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;y&quot;</span><span class="p">],)</span>
+
+    <span class="k">if</span> <span class="s2">&quot;z&quot;</span> <span class="ow">in</span> <span class="n">parameters</span><span class="p">:</span>
+      <span class="n">query_update</span><span class="o">+=</span><span class="s2">&quot;, z=</span><span class="si">%s</span><span class="s2">&quot;</span>
+      <span class="n">query_param</span><span class="o">+=</span><span class="p">(</span><span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;z&quot;</span><span class="p">],)</span>
+    
+    <span class="c1"># add suffix to query</span>
+    <span class="n">query_update</span><span class="o">+=</span><span class="s2">&quot; WHERE id=</span><span class="si">%s</span><span class="s2">&quot;</span>
+    <span class="n">query_param</span><span class="o">+=</span><span class="p">(</span><span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;beaconId&quot;</span><span class="p">],)</span>
+
+    <span class="n">mycursor</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">query_update</span><span class="p">,</span> <span class="n">query_param</span><span class="p">)</span>
+    <span class="n">mydb</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+
+    <span class="k">return</span> <span class="n">jsonify</span><span class="p">({</span><span class="s2">&quot;status&quot;</span><span class="p">:</span><span class="s2">&quot;success&quot;</span><span class="p">})</span></div>
+
+
+<span class="c1"># daniel</span>
+<div class="viewcode-block" id="searchWaypoint"><a class="viewcode-back" href="../app.html#app.searchWaypoint">[docs]</a><span class="nd">@app</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s2">&quot;/search/waypoints&quot;</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;GET&quot;</span><span class="p">])</span>
+<span class="k">def</span> <span class="nf">searchWaypoint</span><span class="p">():</span>
+  <span class="sd">&quot;&quot;&quot;</span>
+
+
+<span class="sd">    Description: Returns all waypoints between 2 beacons.</span>
+
+<span class="sd">    Endpoint: </span>
+<span class="sd">    - /search/waypoints</span>
+
+<span class="sd">    Headers:</span>
+<span class="sd">    - none</span>
+
+<span class="sd">    Parameters GET:</span>
+<span class="sd">    - beaconOrigin</span>
+<span class="sd">    - beaconDestination</span>
+
+<span class="sd">    Parameters POST:</span>
+<span class="sd">    - none</span>
+
+<span class="sd">    Parameters PUT:</span>
+<span class="sd">    - none</span>
+
+<span class="sd">    Parameters DELETE:</span>
+<span class="sd">    - none</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">    - 200 OK ( {&quot;status&quot; : &quot;success&quot;} )</span>
+<span class="sd">    - 400 Bad Request ( {&quot;status&quot; : &quot;bad request&quot;} )</span>
+<span class="sd">    - 401 Unauthorized ( {&quot;status&quot; : &quot;unauthorized&quot;} )</span>
+
+
+<span class="sd">  &quot;&quot;&quot;</span>
+
+  <span class="n">beacons</span><span class="o">=</span><span class="n">request</span><span class="o">.</span><span class="n">get_json</span><span class="p">()</span>
+  <span class="k">if</span> <span class="ow">not</span> <span class="n">beacons</span><span class="p">[</span><span class="s2">&quot;beaconOrigin&quot;</span><span class="p">]</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">beacons</span><span class="p">[</span><span class="s2">&quot;beaconDestination&quot;</span><span class="p">]:</span>
+    <span class="k">return</span> <span class="n">jsonify</span><span class="p">({</span><span class="s2">&quot;status&quot;</span> <span class="p">:</span> <span class="s2">&quot;bad request - missing parameters&quot;</span><span class="p">})</span>
+
+  <span class="n">db_obj</span><span class="o">=</span><span class="n">db_connection</span><span class="p">()</span>
+  <span class="n">mydb</span><span class="o">=</span><span class="n">db_obj</span><span class="p">[</span><span class="s2">&quot;mydb&quot;</span><span class="p">]</span>
+  <span class="n">mycursor</span><span class="o">=</span><span class="n">db_obj</span><span class="p">[</span><span class="s2">&quot;mycursor&quot;</span><span class="p">]</span>
+
+  <span class="n">mycursor</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s2">&quot;SELECT * FROM waypoint INNER JOIN path ON path.id=waypoint.idPath WHERE (path.idBeacon_To=</span><span class="si">%s</span><span class="s2"> and path.idBeacon_From=</span><span class="si">%s</span><span class="s2">) OR (path.idBeacon_To=</span><span class="si">%s</span><span class="s2"> and path.idBeacon_From=</span><span class="si">%s</span><span class="s2">)&quot;</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">beacons</span><span class="p">[</span><span class="s2">&quot;beaconOrigin&quot;</span><span class="p">]),</span> <span class="nb">int</span><span class="p">(</span><span class="n">beacons</span><span class="p">[</span><span class="s2">&quot;beaconDestination&quot;</span><span class="p">]),</span> <span class="nb">int</span><span class="p">(</span><span class="n">beacons</span><span class="p">[</span><span class="s2">&quot;beaconDestination&quot;</span><span class="p">]),</span> <span class="nb">int</span><span class="p">(</span><span class="n">beacons</span><span class="p">[</span><span class="s2">&quot;beaconOrigin&quot;</span><span class="p">])))</span>
+
+  <span class="n">myresult</span> <span class="o">=</span> <span class="n">mycursor</span><span class="o">.</span><span class="n">fetchall</span><span class="p">()</span>
+
+  <span class="n">retorno</span><span class="o">=</span><span class="p">[]</span>
+  <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">myresult</span><span class="p">:</span>
+    <span class="n">retorno</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s2">&quot;idPath&quot;</span><span class="p">:</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="s2">&quot;x&quot;</span><span class="p">:</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span><span class="s2">&quot;y&quot;</span><span class="p">:</span><span class="n">x</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span><span class="s2">&quot;z&quot;</span><span class="p">:</span><span class="n">x</span><span class="p">[</span><span class="mi">3</span><span class="p">]})</span>
+
+  <span class="k">return</span> <span class="n">jsonify</span><span class="p">(</span><span class="n">retorno</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="searchClassrooms"><a class="viewcode-back" href="../app.html#app.searchClassrooms">[docs]</a><span class="nd">@app</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s2">&quot;/map/classrooms&quot;</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;GET&quot;</span><span class="p">])</span>
+<span class="nd">@app</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s2">&quot;/search/classrooms/&lt;id&gt;&quot;</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;GET&quot;</span><span class="p">])</span>
+<span class="k">def</span> <span class="nf">searchClassrooms</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+  <span class="sd">&quot;&quot;&quot;</span>
+
+
+<span class="sd">    Description: Returns all the classrooms / Returns the classroom identified by the ID inserted</span>
+
+<span class="sd">    Endpoint: </span>
+<span class="sd">    - /map/classrooms</span>
+<span class="sd">    - /search/classrooms/&lt;id&gt;</span>
+
+<span class="sd">    Headers:</span>
+<span class="sd">    - none</span>
+
+<span class="sd">    Parameters GET:</span>
+<span class="sd">    - none</span>
+
+<span class="sd">    Parameters POST:</span>
+<span class="sd">    - none</span>
+
+<span class="sd">    Parameters PUT:</span>
+<span class="sd">    - none</span>
+
+<span class="sd">    Parameters DELETE:</span>
+<span class="sd">    - none</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">    - 200 OK ( {&quot;status&quot; : &quot;success&quot;} )</span>
+<span class="sd">    - 400 Bad Request ( {&quot;status&quot; : &quot;bad request&quot;} )</span>
+<span class="sd">    - 401 Unauthorized ( {&quot;status&quot; : &quot;unauthorized&quot;} )</span>
+
+
+<span class="sd">  &quot;&quot;&quot;</span>
+
+  <span class="n">db_obj</span><span class="o">=</span><span class="n">db_connection</span><span class="p">()</span>
+  <span class="n">mydb</span><span class="o">=</span><span class="n">db_obj</span><span class="p">[</span><span class="s2">&quot;mydb&quot;</span><span class="p">]</span>
+  <span class="n">mycursor</span><span class="o">=</span><span class="n">db_obj</span><span class="p">[</span><span class="s2">&quot;mycursor&quot;</span><span class="p">]</span>
+
+  <span class="k">if</span> <span class="nb">id</span><span class="p">:</span>
+    <span class="n">mycursor</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s2">&quot;SELECT * FROM classroom WHERE id = &#39;</span><span class="si">%s</span><span class="s2">&#39; ;&quot;</span> <span class="o">%</span> <span class="nb">id</span><span class="p">)</span>
+
+    <span class="n">myresult</span> <span class="o">=</span> <span class="n">mycursor</span><span class="o">.</span><span class="n">fetchall</span><span class="p">()</span>
+
+    <span class="n">retorno</span><span class="o">=</span><span class="p">[]</span>
+    <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">myresult</span><span class="p">:</span>
+      <span class="n">retorno</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s2">&quot;id&quot;</span><span class="p">:</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="s2">&quot;name&quot;</span><span class="p">:</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span><span class="s2">&quot;occupancy&quot;</span><span class="p">:</span><span class="n">x</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span><span class="s2">&quot;image&quot;</span><span class="p">:</span><span class="n">x</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span><span class="s2">&quot;idDepartment&quot;</span><span class="p">:</span><span class="n">x</span><span class="p">[</span><span class="mi">4</span><span class="p">]})</span>
+  <span class="k">else</span><span class="p">:</span>
+    <span class="n">mycursor</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s2">&quot;SELECT * FROM classroom&quot;</span><span class="p">)</span>
+
+    <span class="n">myresult</span> <span class="o">=</span> <span class="n">mycursor</span><span class="o">.</span><span class="n">fetchall</span><span class="p">()</span>
+
+    <span class="n">retorno</span><span class="o">=</span><span class="p">[]</span>
+    <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">myresult</span><span class="p">:</span>
+      <span class="n">retorno</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s2">&quot;id&quot;</span><span class="p">:</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="s2">&quot;name&quot;</span><span class="p">:</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span><span class="s2">&quot;occupancy&quot;</span><span class="p">:</span><span class="n">x</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span><span class="s2">&quot;image&quot;</span><span class="p">:</span><span class="n">x</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span><span class="s2">&quot;idDepartment&quot;</span><span class="p">:</span><span class="n">x</span><span class="p">[</span><span class="mi">4</span><span class="p">]})</span>
+
+
+  <span class="k">return</span> <span class="n">jsonify</span><span class="p">(</span><span class="n">retorno</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="searchDepartments"><a class="viewcode-back" href="../app.html#app.searchDepartments">[docs]</a><span class="nd">@app</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s2">&quot;/search/departments/&lt;id&gt;&quot;</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;GET&quot;</span><span class="p">])</span>
+<span class="k">def</span> <span class="nf">searchDepartments</span><span class="p">(</span><span class="nb">id</span><span class="p">):</span>
+  <span class="sd">&quot;&quot;&quot;</span>
+
+
+<span class="sd">    Description: Returns the departments identified by the ID inserted.</span>
+
+<span class="sd">    Endpoint: </span>
+<span class="sd">    - /search/departments/&lt;id&gt;</span>
+
+<span class="sd">    Headers:</span>
+<span class="sd">    - none</span>
+
+<span class="sd">    Parameters GET:</span>
+<span class="sd">    - none</span>
+
+<span class="sd">    Parameters POST:</span>
+<span class="sd">    - none</span>
+
+<span class="sd">    Parameters PUT:</span>
+<span class="sd">    - none</span>
+
+<span class="sd">    Parameters DELETE:</span>
+<span class="sd">    - none</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">    - 200 OK ( {&quot;status&quot; : &quot;success&quot;} )</span>
+<span class="sd">    - 400 Bad Request ( {&quot;status&quot; : &quot;bad request&quot;} )</span>
+<span class="sd">    - 401 Unauthorized ( {&quot;status&quot; : &quot;unauthorized&quot;} )</span>
+
+
+<span class="sd">  &quot;&quot;&quot;</span>
+
+  <span class="n">db_obj</span><span class="o">=</span><span class="n">db_connection</span><span class="p">()</span>
+  <span class="n">mydb</span><span class="o">=</span><span class="n">db_obj</span><span class="p">[</span><span class="s2">&quot;mydb&quot;</span><span class="p">]</span>
+  <span class="n">mycursor</span><span class="o">=</span><span class="n">db_obj</span><span class="p">[</span><span class="s2">&quot;mycursor&quot;</span><span class="p">]</span>
+
+  <span class="n">mycursor</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s2">&quot;SELECT department.id, department.designation, classroom.id, classroom.name, classroom.occupancy, classroom.image FROM department INNER JOIN classroom ON department.id=classroom.idDepartment WHERE department.id=</span><span class="si">%s</span><span class="s2"> ;&quot;</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="nb">id</span><span class="p">),))</span>
+
+  <span class="n">myresult</span> <span class="o">=</span> <span class="n">mycursor</span><span class="o">.</span><span class="n">fetchall</span><span class="p">()</span>
+
+  <span class="n">departmentId</span><span class="o">=</span><span class="mi">0</span>
+  <span class="n">departmentDesignation</span><span class="o">=</span><span class="s2">&quot;&quot;</span>
+  <span class="n">classrooms</span><span class="o">=</span><span class="p">[]</span>
+  <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">myresult</span><span class="p">:</span>
+    <span class="n">departmentId</span><span class="o">=</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">departmentDesignation</span><span class="o">=</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">classrooms</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s2">&quot;id&quot;</span><span class="p">:</span><span class="n">x</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="s2">&quot;name&quot;</span><span class="p">:</span><span class="n">x</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span> <span class="s2">&quot;occupancy&quot;</span><span class="p">:</span><span class="n">x</span><span class="p">[</span><span class="mi">4</span><span class="p">],</span> <span class="s2">&quot;image&quot;</span><span class="p">:</span><span class="n">x</span><span class="p">[</span><span class="mi">5</span><span class="p">]})</span>
+
+  <span class="k">if</span> <span class="n">departmentId</span><span class="o">&gt;</span><span class="mi">0</span><span class="p">:</span>
+    <span class="k">return</span> <span class="n">jsonify</span><span class="p">({</span><span class="s2">&quot;departmentId&quot;</span><span class="p">:</span><span class="n">departmentId</span><span class="p">,</span> <span class="s2">&quot;departmentDesignation&quot;</span><span class="p">:</span><span class="n">departmentDesignation</span><span class="p">,</span> <span class="s2">&quot;classrooms&quot;</span><span class="p">:</span><span class="n">classrooms</span><span class="p">})</span>
+  <span class="k">else</span><span class="p">:</span>
+    <span class="k">return</span> <span class="n">jsonify</span><span class="p">({</span><span class="s2">&quot;status&quot;</span><span class="p">:</span><span class="s2">&quot;bad request - nothing to show&quot;</span><span class="p">})</span></div>
+
+<span class="c1"># andre m.</span>
+<div class="viewcode-block" id="placeWaypoint"><a class="viewcode-back" href="../app.html#app.placeWaypoint">[docs]</a><span class="nd">@app</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s2">&quot;/map/waypoint&quot;</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;POST&quot;</span><span class="p">])</span>
+<span class="k">def</span> <span class="nf">placeWaypoint</span><span class="p">():</span>
+  <span class="sd">&quot;&quot;&quot;</span>
+
+
+<span class="sd">    Description: Adds a new waypoint in the map, between two beacons.</span>
+
+<span class="sd">    Endpoint: </span>
+<span class="sd">    - /map/waypoint</span>
+
+<span class="sd">    Headers:</span>
+<span class="sd">    - authToken</span>
+
+<span class="sd">    Parameters GET:</span>
+<span class="sd">    - none</span>
+
+<span class="sd">    Parameters POST:</span>
+<span class="sd">    - idPath</span>
+<span class="sd">    - x</span>
+<span class="sd">    - y</span>
+<span class="sd">    - z</span>
+
+<span class="sd">    Parameters PUT:</span>
+<span class="sd">    - none</span>
+
+<span class="sd">    Parameters DELETE:</span>
+<span class="sd">    - none</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">    - 200 OK ( {&quot;status&quot; : &quot;success&quot;} )</span>
+<span class="sd">    - 400 Bad Request ( {&quot;status&quot; : &quot;bad request&quot;} )</span>
+<span class="sd">    - 401 Unauthorized ( {&quot;status&quot; : &quot;unauthorized&quot;} )</span>
+
+
+<span class="sd">  &quot;&quot;&quot;</span>
+
+  <span class="n">parameters</span><span class="o">=</span><span class="n">request</span><span class="o">.</span><span class="n">get_json</span><span class="p">()</span>
+
+  <span class="k">if</span> <span class="ow">not</span> <span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;idPath&quot;</span><span class="p">]</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;x&quot;</span><span class="p">]</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;y&quot;</span><span class="p">]</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;z&quot;</span><span class="p">]</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">request</span><span class="o">.</span><span class="n">headers</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;authToken&quot;</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">jsonify</span><span class="p">({</span><span class="s2">&quot;status&quot;</span><span class="p">:</span><span class="s2">&quot;missing parameter(s)&quot;</span><span class="p">})</span>
+
+  <span class="n">db_obj</span><span class="o">=</span><span class="n">db_connection</span><span class="p">()</span>
+  <span class="n">mydb</span><span class="o">=</span><span class="n">db_obj</span><span class="p">[</span><span class="s2">&quot;mydb&quot;</span><span class="p">]</span>
+  <span class="n">mycursor</span><span class="o">=</span><span class="n">db_obj</span><span class="p">[</span><span class="s2">&quot;mycursor&quot;</span><span class="p">]</span>
+
+  <span class="n">mycursor</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s2">&quot;SELECT user.id FROM user INNER JOIN role ON user.idRole=role.id WHERE authToken=</span><span class="si">%s</span><span class="s2"> AND role.name=&#39;admin&#39;&quot;</span><span class="p">,</span> <span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">headers</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;authToken&quot;</span><span class="p">),</span> <span class="p">))</span>
+  <span class="n">myresult</span> <span class="o">=</span> <span class="n">mycursor</span><span class="o">.</span><span class="n">fetchall</span><span class="p">()</span>
+
+  <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">myresult</span><span class="p">)</span><span class="o">&gt;</span><span class="mi">0</span><span class="p">:</span>
+    <span class="n">mycursor</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s2">&quot;INSERT INTO waypoint(idPath, x, y, z) VALUES (</span><span class="si">%s</span><span class="s2">, </span><span class="si">%s</span><span class="s2">, </span><span class="si">%s</span><span class="s2">, </span><span class="si">%s</span><span class="s2">)&quot;</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;idPath&quot;</span><span class="p">]),</span> <span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;x&quot;</span><span class="p">],</span> <span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;y&quot;</span><span class="p">],</span> <span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;z&quot;</span><span class="p">]))</span>
+    <span class="n">mydb</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+
+    <span class="k">return</span> <span class="n">jsonify</span><span class="p">({</span><span class="s2">&quot;status&quot;</span><span class="p">:</span><span class="s2">&quot;success&quot;</span><span class="p">})</span>
+
+  <span class="k">return</span> <span class="n">jsonify</span><span class="p">({</span><span class="s2">&quot;status&quot;</span><span class="p">:</span><span class="s2">&quot;no permission&quot;</span><span class="p">})</span></div>
+
+
+<div class="viewcode-block" id="placePath"><a class="viewcode-back" href="../app.html#app.placePath">[docs]</a><span class="nd">@app</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s2">&quot;/map/path&quot;</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;POST&quot;</span><span class="p">])</span>
+<span class="k">def</span> <span class="nf">placePath</span><span class="p">():</span>
+  <span class="sd">&quot;&quot;&quot;</span>
+
+
+<span class="sd">    Description: Adds a new path to the map, by indicating the starting and the ending points.</span>
+
+<span class="sd">    Endpoint: </span>
+<span class="sd">    - /map/path</span>
+
+<span class="sd">    Headers:</span>
+<span class="sd">    - authToken</span>
+
+<span class="sd">    Parameters GET:</span>
+<span class="sd">    - none</span>
+
+<span class="sd">    Parameters POST:</span>
+<span class="sd">    - beaconFrom</span>
+<span class="sd">    - beaconTo</span>
+
+<span class="sd">    Parameters PUT:</span>
+<span class="sd">    - none</span>
+
+<span class="sd">    Parameters DELETE:</span>
+<span class="sd">    - none</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">    - 200 OK ( {&quot;status&quot; : &quot;success&quot;} )</span>
+<span class="sd">    - 400 Bad Request ( {&quot;status&quot; : &quot;bad request&quot;} )</span>
+<span class="sd">    - 401 Unauthorized ( {&quot;status&quot; : &quot;unauthorized&quot;} )</span>
+
+
+<span class="sd">  &quot;&quot;&quot;</span>
+
+  <span class="n">parameters</span><span class="o">=</span><span class="n">request</span><span class="o">.</span><span class="n">get_json</span><span class="p">()</span>
+
+  <span class="k">if</span> <span class="ow">not</span> <span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;beaconFrom&quot;</span><span class="p">]</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;beaconTo&quot;</span><span class="p">]</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">request</span><span class="o">.</span><span class="n">headers</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;authToken&quot;</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">jsonify</span><span class="p">({</span><span class="s2">&quot;status&quot;</span><span class="p">:</span><span class="s2">&quot;missing parameter(s)&quot;</span><span class="p">})</span>
+
+  <span class="n">db_obj</span><span class="o">=</span><span class="n">db_connection</span><span class="p">()</span>
+  <span class="n">mydb</span><span class="o">=</span><span class="n">db_obj</span><span class="p">[</span><span class="s2">&quot;mydb&quot;</span><span class="p">]</span>
+  <span class="n">mycursor</span><span class="o">=</span><span class="n">db_obj</span><span class="p">[</span><span class="s2">&quot;mycursor&quot;</span><span class="p">]</span>
+
+  <span class="n">mycursor</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s2">&quot;SELECT user.id FROM user INNER JOIN role ON user.idRole=role.id WHERE authToken=</span><span class="si">%s</span><span class="s2"> AND role.name=&#39;admin&#39;&quot;</span><span class="p">,</span> <span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">headers</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;authToken&quot;</span><span class="p">),</span> <span class="p">))</span>
+  <span class="n">myresult</span> <span class="o">=</span> <span class="n">mycursor</span><span class="o">.</span><span class="n">fetchall</span><span class="p">()</span>
+
+  <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">myresult</span><span class="p">)</span><span class="o">&gt;</span><span class="mi">0</span><span class="p">:</span>
+    <span class="n">mycursor</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s2">&quot;INSERT INTO path(idBeacon_From, idBeacon_To) VALUES (</span><span class="si">%s</span><span class="s2">, </span><span class="si">%s</span><span class="s2">)&quot;</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;beaconFrom&quot;</span><span class="p">]),</span> <span class="nb">int</span><span class="p">(</span><span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;beaconTo&quot;</span><span class="p">])</span> <span class="p">))</span>
+    <span class="n">mydb</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+
+    <span class="k">return</span> <span class="n">jsonify</span><span class="p">({</span><span class="s2">&quot;status&quot;</span><span class="p">:</span><span class="s2">&quot;success&quot;</span><span class="p">})</span>
+
+  <span class="k">return</span> <span class="n">jsonify</span><span class="p">({</span><span class="s2">&quot;status&quot;</span><span class="p">:</span><span class="s2">&quot;no permission&quot;</span><span class="p">})</span></div>
+
+
+<div class="viewcode-block" id="feedback"><a class="viewcode-back" href="../app.html#app.feedback">[docs]</a><span class="nd">@app</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s2">&quot;/account/feedback&quot;</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;GET&quot;</span><span class="p">,</span> <span class="s2">&quot;POST&quot;</span><span class="p">])</span>
+<span class="k">def</span> <span class="nf">feedback</span><span class="p">():</span>
+  <span class="sd">&quot;&quot;&quot;</span>
+
+
+<span class="sd">    Description: Returns / Adds feedback inserted by user. This feedback is the daily diary. NOTE: TO ACCESS UPLOADS, USE THE ENDPOINT: /uploads/nomedoficheiro.ext</span>
+
+<span class="sd">    Endpoint: </span>
+<span class="sd">    - /account/feedback</span>
+
+<span class="sd">    Headers:</span>
+<span class="sd">    - (POST) authToken</span>
+
+<span class="sd">    Parameters GET:</span>
+<span class="sd">    - idUser : optional</span>
+
+<span class="sd">    Parameters POST:</span>
+<span class="sd">    - type -&gt; text ou image ou video ou audio</span>
+<span class="sd">    - content -&gt; ficheiro em base64 ou texto normal. o plain text em base64 não pode ter o seguinte texto, nem nada que se assemelhe: data:image/png;base64,</span>
+<span class="sd">    - idUser -&gt; id do utilizador que está a fazer o upload</span>
+<span class="sd">    - idBeacon -&gt; id do beacon</span>
+
+<span class="sd">    Parameters PUT:</span>
+<span class="sd">    - none</span>
+
+<span class="sd">    Parameters DELETE:</span>
+<span class="sd">    - none</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">    - 200 OK ( {&quot;status&quot; : &quot;success&quot;} )</span>
+<span class="sd">    - 400 Bad Request ( {&quot;status&quot; : &quot;bad request&quot;} )</span>
+<span class="sd">    - 401 Unauthorized ( {&quot;status&quot; : &quot;unauthorized&quot;} )</span>
+
+
+<span class="sd">  &quot;&quot;&quot;</span>
+
+  <span class="n">db_obj</span><span class="o">=</span><span class="n">db_connection</span><span class="p">()</span>
+  <span class="n">mydb</span><span class="o">=</span><span class="n">db_obj</span><span class="p">[</span><span class="s2">&quot;mydb&quot;</span><span class="p">]</span>
+  <span class="n">mycursor</span><span class="o">=</span><span class="n">db_obj</span><span class="p">[</span><span class="s2">&quot;mycursor&quot;</span><span class="p">]</span>
+
+  <span class="k">if</span> <span class="n">request</span><span class="o">.</span><span class="n">method</span><span class="o">==</span><span class="s2">&quot;GET&quot;</span><span class="p">:</span>
+    <span class="n">sql_query</span><span class="o">=</span><span class="s2">&quot;SELECT note.id, note.idBeacon, note.content, note.idUser, note.type, note.dateTime, user.name FROM note INNER JOIN user ON user.id=note.idUser&quot;</span>
+    <span class="n">params</span><span class="o">=</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="n">request</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;idUser&quot;</span><span class="p">):</span>
+      <span class="n">sql_query</span><span class="o">+=</span><span class="s2">&quot; WHERE idUser=</span><span class="si">%s</span><span class="s2">&quot;</span>
+      <span class="n">params</span><span class="o">=</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;idUser&quot;</span><span class="p">)),)</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="n">sql_query</span><span class="p">)</span>
+    <span class="n">mycursor</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">sql_query</span><span class="p">,</span> <span class="n">params</span><span class="p">)</span>
+    <span class="n">myresult</span> <span class="o">=</span> <span class="n">mycursor</span><span class="o">.</span><span class="n">fetchall</span><span class="p">()</span>
+
+    <span class="n">notes</span><span class="o">=</span><span class="p">[]</span>
+    <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">myresult</span><span class="p">:</span>
+      <span class="n">notes</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s2">&quot;id&quot;</span><span class="p">:</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="s2">&quot;idBeacon&quot;</span><span class="p">:</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="s2">&quot;content&quot;</span><span class="p">:</span><span class="n">x</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="s2">&quot;idUser&quot;</span><span class="p">:</span><span class="n">x</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span> <span class="s2">&quot;type&quot;</span><span class="p">:</span><span class="n">x</span><span class="p">[</span><span class="mi">4</span><span class="p">],</span> <span class="s2">&quot;dateTime&quot;</span><span class="p">:</span> <span class="n">x</span><span class="p">[</span><span class="mi">5</span><span class="p">],</span> <span class="s2">&quot;username&quot;</span><span class="p">:</span> <span class="n">x</span><span class="p">[</span><span class="mi">6</span><span class="p">]})</span>
+
+    <span class="k">return</span> <span class="n">jsonify</span><span class="p">({</span><span class="s2">&quot;feedback&quot;</span><span class="p">:</span><span class="n">notes</span><span class="p">})</span>
+
+  <span class="k">if</span> <span class="n">request</span><span class="o">.</span><span class="n">method</span><span class="o">==</span><span class="s2">&quot;POST&quot;</span><span class="p">:</span>
+    <span class="n">parameters</span><span class="o">=</span><span class="n">request</span><span class="o">.</span><span class="n">get_json</span><span class="p">()</span>
+
+    <span class="c1"># verificar se os parametros de POST são válidos</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;content&quot;</span><span class="p">]</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;idUser&quot;</span><span class="p">]</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;idBeacon&quot;</span><span class="p">]</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">request</span><span class="o">.</span><span class="n">headers</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;authToken&quot;</span><span class="p">):</span>
+      <span class="k">return</span> <span class="n">jsonify</span><span class="p">({</span><span class="s2">&quot;status&quot;</span><span class="p">:</span><span class="s2">&quot;missing parameter(s)&quot;</span><span class="p">})</span>
+
+    <span class="n">mycursor</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s2">&quot;SELECT user.id FROM user INNER JOIN role ON user.idRole=role.id WHERE authToken=</span><span class="si">%s</span><span class="s2"> AND user.id=</span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">headers</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;authToken&quot;</span><span class="p">),</span> <span class="nb">int</span><span class="p">(</span><span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;idUser&quot;</span><span class="p">])</span> <span class="p">))</span>
+    <span class="n">myresult</span> <span class="o">=</span> <span class="n">mycursor</span><span class="o">.</span><span class="n">fetchall</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">myresult</span><span class="p">)</span><span class="o">&gt;</span><span class="mi">0</span><span class="p">:</span>
+      <span class="n">fileFormats</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;image&quot;</span><span class="p">:</span><span class="s2">&quot;jpg&quot;</span><span class="p">,</span> <span class="s2">&quot;audio&quot;</span><span class="p">:</span><span class="s2">&quot;wav&quot;</span><span class="p">,</span> <span class="s2">&quot;video&quot;</span><span class="p">:</span><span class="s2">&quot;mp4&quot;</span><span class="p">}</span>
+
+      <span class="c1"># a variável content vai assumir valores de texto normal ou de caminhos para o ficheiro</span>
+      <span class="n">content</span><span class="o">=</span><span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;content&quot;</span><span class="p">]</span>
+      <span class="c1"># verificar se está a ser feito upload de um ficheiro ou de texto livre</span>
+      <span class="k">if</span> <span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span><span class="o">!=</span><span class="s2">&quot;text&quot;</span><span class="p">:</span>
+        <span class="n">content</span><span class="o">=</span><span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;content&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;,&quot;</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;ascii&quot;</span><span class="p">)</span>
+        <span class="c1"># definir um nome para o ficheiro novo</span>
+        <span class="n">fileName</span><span class="o">=</span><span class="s2">&quot;uploads/&quot;</span><span class="o">+</span><span class="n">secrets</span><span class="o">.</span><span class="n">token_hex</span><span class="p">(</span><span class="mi">8</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;.&quot;</span> <span class="o">+</span> <span class="n">fileFormats</span><span class="p">[</span><span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]]</span>
+
+        <span class="c1"># definir um nome novo para o ficheiro, no caso desse nome já existir</span>
+        <span class="k">while</span> <span class="n">exists</span><span class="p">(</span><span class="n">fileName</span><span class="p">):</span>
+          <span class="n">fileName</span><span class="o">=</span><span class="s2">&quot;uploads/&quot;</span><span class="o">+</span><span class="n">secrets</span><span class="o">.</span><span class="n">token_hex</span><span class="p">(</span><span class="mi">8</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;.&quot;</span> <span class="o">+</span> <span class="n">fileFormats</span><span class="p">[</span><span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]]</span>
+
+        <span class="c1"># converter o ficheiro em base64 para binário e guarda-lo no sistema de ficheiros</span>
+        <span class="n">fileBin</span> <span class="o">=</span> <span class="n">base64</span><span class="o">.</span><span class="n">b64decode</span><span class="p">(</span><span class="n">content</span><span class="p">)</span>
+
+        <span class="n">my_file</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">THIS_FOLDER</span><span class="p">,</span> <span class="n">fileName</span><span class="p">)</span>
+        <span class="n">f</span><span class="o">=</span><span class="nb">open</span><span class="p">(</span><span class="n">my_file</span><span class="p">,</span> <span class="s2">&quot;wb&quot;</span><span class="p">)</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">fileBin</span><span class="p">)</span>
+
+        <span class="n">content</span><span class="o">=</span><span class="n">fileName</span>
+      <span class="k">else</span><span class="p">:</span>
+        <span class="n">content</span><span class="o">=</span><span class="n">content</span><span class="p">[:</span><span class="mi">149</span><span class="p">]</span>
+
+      <span class="c1"># guardar na base de dados</span>
+      <span class="n">mycursor</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s2">&quot;INSERT INTO note(type, content, idUser, idBeacon) VALUES (</span><span class="si">%s</span><span class="s2">, </span><span class="si">%s</span><span class="s2">, </span><span class="si">%s</span><span class="s2">, </span><span class="si">%s</span><span class="s2">)&quot;</span><span class="p">,</span> <span class="p">(</span><span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">],</span> <span class="n">content</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;idUser&quot;</span><span class="p">]),</span> <span class="nb">int</span><span class="p">(</span><span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;idBeacon&quot;</span><span class="p">])</span> <span class="p">))</span>
+      <span class="n">mydb</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+
+      <span class="k">return</span> <span class="n">jsonify</span><span class="p">({</span><span class="s2">&quot;status&quot;</span><span class="p">:</span><span class="s2">&quot;success&quot;</span><span class="p">})</span>
+
+  <span class="k">return</span> <span class="n">jsonify</span><span class="p">({</span><span class="s2">&quot;status&quot;</span><span class="p">:</span><span class="s2">&quot;no permission&quot;</span><span class="p">})</span></div>
+
+
+<div class="viewcode-block" id="get_files"><a class="viewcode-back" href="../app.html#app.get_files">[docs]</a><span class="nd">@app</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s1">&#39;/uploads/&lt;filename&gt;&#39;</span><span class="p">,</span><span class="n">methods</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;GET&#39;</span><span class="p">])</span>
+<span class="k">def</span> <span class="nf">get_files</span><span class="p">(</span><span class="n">filename</span><span class="p">):</span>
+  <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        </span>
+
+<span class="sd">    Description: Returns a file uploaded</span>
+
+<span class="sd">    Endpoint: </span>
+<span class="sd">    - /uploads/&lt;filename&gt;</span>
+
+<span class="sd">    Headers:</span>
+<span class="sd">    - none</span>
+
+<span class="sd">    Parameters GET:</span>
+<span class="sd">    - none</span>
+
+<span class="sd">    Parameters POST:</span>
+<span class="sd">    - none</span>
+
+<span class="sd">    Parameters PUT:</span>
+<span class="sd">    - none</span>
+
+<span class="sd">    Parameters DELETE:</span>
+<span class="sd">    - none</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">    - 200 OK ( {&quot;status&quot; : &quot;success&quot;} )</span>
+<span class="sd">    - 400 Bad Request ( {&quot;status&quot; : &quot;bad request&quot;} )</span>
+<span class="sd">    - 401 Unauthorized ( {&quot;status&quot; : &quot;unauthorized&quot;} )</span>
+
+
+<span class="sd">  &quot;&quot;&quot;</span>
+  <span class="k">try</span><span class="p">:</span>
+    <span class="k">return</span> <span class="n">send_from_directory</span><span class="p">(</span><span class="s2">&quot;uploads/&quot;</span><span class="p">,</span> <span class="n">filename</span><span class="p">)</span>
+  <span class="k">except</span> <span class="ne">FileNotFoundError</span><span class="p">:</span>
+    <span class="n">abort</span><span class="p">(</span><span class="mi">404</span><span class="p">)</span></div>
+
+
+<span class="c1"># francisco (não te esqueças que tens de receber o header com o token de autenticação)</span>
+<div class="viewcode-block" id="accountDelete"><a class="viewcode-back" href="../app.html#app.accountDelete">[docs]</a><span class="nd">@app</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s2">&quot;/account/delete&quot;</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;DELETE&quot;</span><span class="p">])</span>
+<span class="k">def</span> <span class="nf">accountDelete</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">          </span>
+
+<span class="sd">      Description: Deletes user account</span>
+
+<span class="sd">      Endpoint: </span>
+<span class="sd">      - /account/delete</span>
+
+<span class="sd">      Headers:</span>
+<span class="sd">      - authToken</span>
+
+<span class="sd">      Parameters GET:</span>
+<span class="sd">      - none</span>
+
+<span class="sd">      Parameters POST:</span>
+<span class="sd">      - none</span>
+
+<span class="sd">      Parameters PUT:</span>
+<span class="sd">      - none</span>
+
+<span class="sd">      Parameters DELETE:</span>
+<span class="sd">      - username</span>
+<span class="sd">      - password</span>
+
+<span class="sd">      Returns:</span>
+<span class="sd">      - 200 OK ( {&quot;status&quot; : &quot;success&quot;} )</span>
+<span class="sd">      - 400 Bad Request ( {&quot;status&quot; : &quot;bad request&quot;} )</span>
+<span class="sd">      - 401 Unauthorized ( {&quot;status&quot; : &quot;unauthorized&quot;} )</span>
+
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">db_obj</span><span class="o">=</span><span class="n">db_connection</span><span class="p">()</span>
+    <span class="n">mydb</span><span class="o">=</span><span class="n">db_obj</span><span class="p">[</span><span class="s2">&quot;mydb&quot;</span><span class="p">]</span>
+    <span class="n">mycursor</span><span class="o">=</span><span class="n">db_obj</span><span class="p">[</span><span class="s2">&quot;mycursor&quot;</span><span class="p">]</span>
+
+    <span class="n">parameters</span><span class="o">=</span><span class="n">request</span><span class="o">.</span><span class="n">get_json</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;username&quot;</span><span class="p">]</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;password&quot;</span><span class="p">]</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">request</span><span class="o">.</span><span class="n">headers</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;authToken&quot;</span><span class="p">):</span>
+      <span class="k">return</span> <span class="n">jsonify</span><span class="p">({</span><span class="s2">&quot;status&quot;</span><span class="p">:</span><span class="s2">&quot;missing parameter(s)&quot;</span><span class="p">})</span>
+
+    <span class="c1"># Verify user</span>
+    <span class="n">mycursor</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s2">&quot;SELECT user.id,user.password FROM user WHERE authToken=</span><span class="si">%s</span><span class="s2"> AND user.name=</span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">headers</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;authToken&quot;</span><span class="p">),</span> <span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;username&quot;</span><span class="p">]</span> <span class="p">))</span>
+    <span class="n">myresult</span> <span class="o">=</span> <span class="n">mycursor</span><span class="o">.</span><span class="n">fetchall</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">myresult</span><span class="p">)</span><span class="o">&gt;</span><span class="mi">0</span><span class="p">:</span>
+
+      <span class="n">passwordToCheck</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="sa">r</span><span class="s1">&#39;</span><span class="se">\&#39;</span><span class="s1">(.*?)</span><span class="se">\&#39;</span><span class="s1">&#39;</span><span class="p">,</span><span class="nb">str</span><span class="p">(</span><span class="n">myresult</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">]))</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+      <span class="k">if</span> <span class="n">check_password_hash</span><span class="p">(</span><span class="n">passwordToCheck</span><span class="p">,</span> <span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;password&quot;</span><span class="p">]):</span>
+        <span class="n">mycursor</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s2">&quot;DELETE FROM user WHERE authToken=</span><span class="si">%s</span><span class="s2"> AND user.name=</span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">headers</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;authToken&quot;</span><span class="p">),</span> <span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;username&quot;</span><span class="p">]</span> <span class="p">))</span>
+        <span class="n">mydb</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+
+        <span class="k">return</span> <span class="n">jsonify</span><span class="p">({</span><span class="s2">&quot;status&quot;</span><span class="p">:</span><span class="s2">&quot;success&quot;</span><span class="p">})</span>
+
+      <span class="nb">print</span><span class="p">(</span><span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;password&quot;</span><span class="p">])</span>
+      <span class="k">return</span> <span class="n">jsonify</span><span class="p">({</span><span class="s2">&quot;status&quot;</span><span class="p">:</span><span class="s2">&quot;wrong password&quot;</span><span class="p">})</span>
+
+    <span class="k">return</span> <span class="n">jsonify</span><span class="p">({</span><span class="s2">&quot;status&quot;</span><span class="p">:</span><span class="s2">&quot;no permission&quot;</span><span class="p">})</span></div>
+
+
+<div class="viewcode-block" id="accountChange"><a class="viewcode-back" href="../app.html#app.accountChange">[docs]</a><span class="nd">@app</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s2">&quot;/account/change&quot;</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;PUT&quot;</span><span class="p">])</span>
+<span class="k">def</span> <span class="nf">accountChange</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">          </span>
+
+<span class="sd">      Description: Change user&#39;s password</span>
+
+<span class="sd">      Endpoint: </span>
+<span class="sd">      - /account/change</span>
+
+<span class="sd">      Headers:</span>
+<span class="sd">      - authToken</span>
+
+<span class="sd">      Parameters GET:</span>
+<span class="sd">      - none</span>
+
+<span class="sd">      Parameters POST:</span>
+<span class="sd">      - none</span>
+
+<span class="sd">      Parameters PUT:</span>
+<span class="sd">      - username</span>
+<span class="sd">      - oldPassword</span>
+<span class="sd">      - newPassword</span>
+
+<span class="sd">      Parameters DELETE:</span>
+<span class="sd">      - none</span>
+
+<span class="sd">      Returns:</span>
+<span class="sd">      - 200 OK ( {&quot;status&quot; : &quot;success&quot;} )</span>
+<span class="sd">      - 400 Bad Request ( {&quot;status&quot; : &quot;bad request&quot;} )</span>
+<span class="sd">      - 401 Unauthorized ( {&quot;status&quot; : &quot;unauthorized&quot;} )</span>
+
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">db_obj</span><span class="o">=</span><span class="n">db_connection</span><span class="p">()</span>
+    <span class="n">mydb</span><span class="o">=</span><span class="n">db_obj</span><span class="p">[</span><span class="s2">&quot;mydb&quot;</span><span class="p">]</span>
+    <span class="n">mycursor</span><span class="o">=</span><span class="n">db_obj</span><span class="p">[</span><span class="s2">&quot;mycursor&quot;</span><span class="p">]</span>
+
+    <span class="n">parameters</span><span class="o">=</span><span class="n">request</span><span class="o">.</span><span class="n">get_json</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;username&quot;</span><span class="p">]</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;oldPassword&quot;</span><span class="p">]</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;newPassword&quot;</span><span class="p">]</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">request</span><span class="o">.</span><span class="n">headers</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;authToken&quot;</span><span class="p">):</span>
+      <span class="k">return</span> <span class="n">jsonify</span><span class="p">({</span><span class="s2">&quot;status&quot;</span><span class="p">:</span><span class="s2">&quot;missing parameter(s)&quot;</span><span class="p">})</span>
+
+    <span class="c1"># Verify user</span>
+    <span class="n">mycursor</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s2">&quot;SELECT user.id,user.password FROM user WHERE authToken=</span><span class="si">%s</span><span class="s2"> AND user.name=</span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">headers</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;authToken&quot;</span><span class="p">),</span> <span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;username&quot;</span><span class="p">]</span> <span class="p">))</span>
+    <span class="n">myresult</span> <span class="o">=</span> <span class="n">mycursor</span><span class="o">.</span><span class="n">fetchall</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">myresult</span><span class="p">)</span><span class="o">&gt;</span><span class="mi">0</span><span class="p">:</span>
+
+      <span class="n">passwordToCheck</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="sa">r</span><span class="s1">&#39;</span><span class="se">\&#39;</span><span class="s1">(.*?)</span><span class="se">\&#39;</span><span class="s1">&#39;</span><span class="p">,</span><span class="nb">str</span><span class="p">(</span><span class="n">myresult</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">]))</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+      <span class="k">if</span> <span class="n">check_password_hash</span><span class="p">(</span><span class="n">passwordToCheck</span><span class="p">,</span> <span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;oldPassword&quot;</span><span class="p">]):</span>
+        <span class="n">pwdRegex</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s1">&#39;^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*#?&amp;])[A-Za-z\d@$!#%*?&amp;]{8,}$&#39;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">pwdRegex</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;oldPassword&quot;</span><span class="p">]):</span>
+          <span class="n">encryptedPassword</span> <span class="o">=</span> <span class="n">generate_password_hash</span><span class="p">(</span><span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;newPassword&quot;</span><span class="p">],</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;sha256&#39;</span><span class="p">)</span>
+
+          <span class="n">mycursor</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s2">&quot;UPDATE user SET user.password=</span><span class="si">%s</span><span class="s2"> WHERE user.name=</span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="p">(</span><span class="n">encryptedPassword</span><span class="p">,</span> <span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;username&quot;</span><span class="p">]))</span>
+          <span class="n">mydb</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+
+          <span class="k">return</span> <span class="n">jsonify</span><span class="p">({</span><span class="s2">&quot;status&quot;</span><span class="p">:</span><span class="s2">&quot;success&quot;</span><span class="p">})</span>
+
+        <span class="k">return</span> <span class="n">jsonify</span><span class="p">({</span><span class="s2">&quot;status&quot;</span><span class="p">:</span><span class="s2">&quot;new password is invalid&quot;</span><span class="p">})</span>
+
+      <span class="k">return</span> <span class="n">jsonify</span><span class="p">({</span><span class="s2">&quot;status&quot;</span><span class="p">:</span><span class="s2">&quot;wrong password&quot;</span><span class="p">})</span>
+
+    <span class="k">return</span> <span class="n">jsonify</span><span class="p">({</span><span class="s2">&quot;status&quot;</span><span class="p">:</span><span class="s2">&quot;no permission&quot;</span><span class="p">})</span></div>
+
+
+<div class="viewcode-block" id="accountReviews"><a class="viewcode-back" href="../app.html#app.accountReviews">[docs]</a><span class="nd">@app</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s2">&quot;/account/reviews&quot;</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;GET&quot;</span><span class="p">,</span> <span class="s2">&quot;POST&quot;</span><span class="p">])</span>
+<span class="k">def</span> <span class="nf">accountReviews</span><span class="p">():</span>
+  <span class="sd">&quot;&quot;&quot;</span>
+
+
+<span class="sd">    Description: Returns all the reviews sent by users / Insert a new review</span>
+
+<span class="sd">    Endpoint: </span>
+<span class="sd">    - /account/reviews</span>
+
+<span class="sd">    Headers:</span>
+<span class="sd">    - (POST) authToken</span>
+
+<span class="sd">    Parameters GET:</span>
+<span class="sd">    - none</span>
+
+<span class="sd">    Parameters POST:</span>
+<span class="sd">    - idUser</span>
+<span class="sd">    - body</span>
+
+<span class="sd">    Parameters PUT:</span>
+<span class="sd">    - none</span>
+
+<span class="sd">    Parameters DELETE:</span>
+<span class="sd">    - none</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">    - 200 OK ( {&quot;status&quot; : &quot;success&quot;} )</span>
+<span class="sd">    - 400 Bad Request ( {&quot;status&quot; : &quot;bad request&quot;} )</span>
+<span class="sd">    - 401 Unauthorized ( {&quot;status&quot; : &quot;unauthorized&quot;} )</span>
+
+
+<span class="sd">  &quot;&quot;&quot;</span>
+
+  <span class="n">db_obj</span><span class="o">=</span><span class="n">db_connection</span><span class="p">()</span>
+  <span class="n">mydb</span><span class="o">=</span><span class="n">db_obj</span><span class="p">[</span><span class="s2">&quot;mydb&quot;</span><span class="p">]</span>
+  <span class="n">mycursor</span><span class="o">=</span><span class="n">db_obj</span><span class="p">[</span><span class="s2">&quot;mycursor&quot;</span><span class="p">]</span>
+
+  <span class="k">if</span> <span class="n">request</span><span class="o">.</span><span class="n">method</span><span class="o">==</span><span class="s2">&quot;GET&quot;</span><span class="p">:</span>
+    <span class="n">mycursor</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s2">&quot;SELECT user.name, review.text FROM review INNER JOIN user ON review.idUser=user.id&quot;</span><span class="p">)</span>
+    <span class="n">myresult</span> <span class="o">=</span> <span class="n">mycursor</span><span class="o">.</span><span class="n">fetchall</span><span class="p">()</span>
+
+    <span class="n">resultList</span><span class="o">=</span><span class="p">[]</span>
+    <span class="k">for</span> <span class="n">result</span> <span class="ow">in</span> <span class="n">myresult</span><span class="p">:</span>
+      <span class="n">resultList</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s2">&quot;username&quot;</span><span class="p">:</span><span class="n">result</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="s2">&quot;review&quot;</span><span class="p">:</span><span class="n">result</span><span class="p">[</span><span class="mi">1</span><span class="p">]})</span>
+
+    <span class="k">return</span> <span class="n">jsonify</span><span class="p">(</span><span class="n">resultList</span><span class="p">)</span>
+
+  <span class="k">if</span> <span class="n">request</span><span class="o">.</span><span class="n">method</span><span class="o">==</span><span class="s2">&quot;POST&quot;</span><span class="p">:</span>
+    <span class="n">parameters</span><span class="o">=</span><span class="n">request</span><span class="o">.</span><span class="n">get_json</span><span class="p">()</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;idUser&quot;</span><span class="p">]</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;body&quot;</span><span class="p">]</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">request</span><span class="o">.</span><span class="n">headers</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;authToken&quot;</span><span class="p">):</span>
+      <span class="k">return</span> <span class="n">jsonify</span><span class="p">({</span><span class="s2">&quot;status&quot;</span><span class="p">:</span><span class="s2">&quot;missing parameter(s)&quot;</span><span class="p">})</span>
+
+    <span class="c1"># Verify user</span>
+    <span class="n">mycursor</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s2">&quot;SELECT user.id FROM user WHERE authToken=</span><span class="si">%s</span><span class="s2"> AND user.id=</span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">headers</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;authToken&quot;</span><span class="p">),</span> <span class="nb">int</span><span class="p">(</span><span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;idUser&quot;</span><span class="p">])</span> <span class="p">))</span>
+    <span class="n">myresult</span> <span class="o">=</span> <span class="n">mycursor</span><span class="o">.</span><span class="n">fetchall</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">myresult</span><span class="p">)</span><span class="o">&gt;</span><span class="mi">0</span><span class="p">:</span>
+      <span class="n">mycursor</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s2">&quot;INSERT INTO review(idUser, text) VALUES (</span><span class="si">%s</span><span class="s2">, </span><span class="si">%s</span><span class="s2">)&quot;</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;idUser&quot;</span><span class="p">]),</span> <span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;body&quot;</span><span class="p">]))</span>
+      <span class="n">mydb</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+
+      <span class="k">return</span> <span class="n">jsonify</span><span class="p">({</span><span class="s2">&quot;status&quot;</span><span class="p">:</span><span class="s2">&quot;success&quot;</span><span class="p">})</span>
+
+    <span class="k">return</span> <span class="n">jsonify</span><span class="p">({</span><span class="s2">&quot;status&quot;</span><span class="p">:</span><span class="s2">&quot;no permission&quot;</span><span class="p">})</span>
+  <span class="k">return</span> <span class="n">jsonify</span><span class="p">({})</span></div>
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+  <span class="n">app</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">debug</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">Indoor Mapping API ISEP</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../modules.html">IndoorMappingAPI</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2022, G01.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 4.5.0</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>
