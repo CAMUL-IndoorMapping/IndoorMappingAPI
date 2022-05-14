@@ -61,18 +61,35 @@ def checkUserAdmin(authToken):
 @app.route("/account/login", methods=["GET"])
 def accountLogin():
   """
-  Logs the user in.
 
-  Endpoint: /account/login
+  
+    Description: Logs the user in.
 
-  Parameters:
-    email: User email.
-    password: User password.
+    Endpoint:
+    - /account/login
 
-  Returns:
-          200 OK ( {"status" : "success"} )
-          400 Bad Request ( {"status" : "bad request"} )
-          401 Unauthorized ( {"status" : "unauthorized"} )
+    Headers:
+    - none
+
+    Parameters GET:
+    - email
+    - password
+
+    Parameters POST:
+    - none
+
+    Parameters PUT:
+    - none
+
+    Parameters DELETE:
+    - none
+
+    Returns:
+    - 200 OK ( {"status" : "success"} )
+    - 400 Bad Request ( {"status" : "bad request"} )
+    - 401 Unauthorized ( {"status" : "unauthorized"} )
+
+
   """
 
   if "loggedin" not in session:
@@ -130,18 +147,35 @@ def accountLogin():
 @app.route("/account/signup", methods=["POST"])
 def accountSignup():
   """
-  Creates a new account.
 
-  Endpoint: /account/signup
 
-  Parameters:
-    name: User name.
-    email: User email.
-    password: User password.
+    Description: Creates a new account.
 
-  Returns:
-          200 OK ( {"status" : "success"} )
-          400 Bad Request ( {"status" : "bad request"} )
+    Endpoint: 
+    - /account/signup
+
+    Headers:
+    - none
+
+    Parameters GET:
+    - none
+
+    Parameters POST:
+    - name
+    - email
+    - password
+
+    Parameters PUT:
+    - none
+
+    Parameters DELETE:
+    - none
+
+    Returns:
+    - 200 OK ( {"status" : "success"} )
+    - 400 Bad Request ( {"status" : "bad request"} )
+
+
   """
 
   # Get the JSON containing the user input
@@ -210,21 +244,35 @@ def accountSignup():
 @app.route("/account/forgot/<resetToken>", methods=["POST"])
 def accountForgot(resetToken=None):
   """
-  Allows user to recover their lost password. Allows GET and POST methods.
-    GET -> Receives an email to which a message will be sent with a link to insert the new password
-    POST -> Allows the user to insert the new password, updating the database
 
-  Endpoints: /account/forgot
-             /accout/forgot/<token>
 
-  Parameters:
-    GET -> email: User email.
-    POST -> email: User email.
-            password: User's new password.
+    Description: Allows user to recover their lost password. Allows GET and POST methods. GET -> Receives an email to which a message will be sent with a link to insert the new password. POST -> Allows the user to insert the new password, updating the database
 
-  Returns:
-          200 OK ( {"status" : "success"} )
-          400 Bad Request ( {"status" : "bad request"} )
+    Endpoint: 
+    - (GET) /account/forgot 
+    - (POST) /accout/forgot/<token> 
+
+    Headers:
+    - none
+
+    Parameters GET:
+    - email
+
+    Parameters POST:
+    - email
+    - password
+
+    Parameters PUT:
+    - none
+
+    Parameters DELETE:
+    - none
+
+    Returns:
+      200 OK ( {"status" : "success"} )
+      400 Bad Request ( {"status" : "bad request"} )
+
+
   """
 
   if request.method=="GET":
@@ -299,12 +347,33 @@ def accountForgot(resetToken=None):
 @app.route("/account/logout", methods=["PUT"])
 def accountLogout():
   """
-  Logs the current user out.
 
-  Endpoint: /account/logout
 
-  Returns: 200 OK ( {"status" : "success"} )
-           401 Unauthorized ( {"status" : "unauthorized"} )
+    Description: Logs the current user out.
+
+    Endpoint: 
+    - /account/logout
+
+    Headers:
+    - none
+
+    Parameters GET:
+    - none
+
+    Parameters POST:
+    - none
+
+    Parameters PUT:
+    - none
+
+    Parameters DELETE:
+    - none
+
+    Returns:
+    - 200 OK ( {"status" : "success"} )
+    - 401 Unauthorized ( {"status" : "unauthorized"} )
+
+
   """
 
   # Checks if the user is logged in
@@ -320,6 +389,35 @@ def accountLogout():
 # andre g.
 @app.route("/search/beacons/<id>", methods=["GET"])
 def searchBeacon(id):
+  """
+      
+
+    Description: Returns information about one specific beacon
+
+    Endpoint: 
+    - /search/beacons/<id>
+
+    Headers:
+    - none
+
+    Parameters GET:
+    - none
+
+    Parameters POST:
+    - none
+
+    Parameters PUT:
+    - none
+
+    Parameters DELETE:
+    - none
+
+    Returns:
+    - 200 OK ( {"idDevice":"", "idClassroom":"", "x":"", "y":"", "z":""} )
+    - 401 Unauthorized ( {"status" : "unauthorized"} )
+
+
+  """
 
   #Connect to database
   db_obj=db_connection()
@@ -350,27 +448,42 @@ def searchBeacon(id):
 @app.route("/map/beacons", methods=["GET", "POST", "PUT"])
 def beaconsOperation():
   """
-  Logs the current user out.
 
-  Endpoint: /map/beacons
 
-  Headers:
-    authToken
+    Description: returns all the beacons in the map
 
-  Parameters:
-    "beaconId" -> mandatory
+    Endpoint: 
+    - /map/beacons
+    Headers:
+    - (POST / PUT) authToken
 
-    {
-      "beaconId":1,
-      "beaconName":"Beacon Um",
-      "classroomId":2,
-      "x":4,
-      "y":5,
-      "z":6
-    }
+    Parameters GET:
+    - none
 
-  Returns: 200 OK ( {"status" : "success"} )
-           401 Unauthorized ( {"status" : "unauthorized"} )
+    Parameters POST:
+    - idDevice
+    - IdClassroom
+    - x
+    - y
+    - z
+
+    Parameters PUT:
+    - beaconId : mandatory
+    - beaconName : optional
+    - classroomId : optional
+    - x : optional
+    - y : optional
+    - z : optional
+
+    Parameters DELETE:
+    - none
+
+    Returns:
+    - 200 OK ( {"status" : "success"} )
+    - 400 Unauthorized ( {"status":"bad request - missing parameters; at least 2 parameters; beaconId is mandatory"} )
+    - 403 Unauthorized ( {"status":"bad request - no permission"} )
+
+
   """
   #Connect to database
   db_obj=db_connection()
@@ -478,7 +591,7 @@ def beaconsOperation():
     mycursor.execute(query_update, query_param)
     mydb.commit()
 
-    return jsonify({"status":"succeed"})
+    return jsonify({"status":"success"})
 
 
 # daniel
@@ -486,18 +599,34 @@ def beaconsOperation():
 def searchWaypoint():
   """
 
-  Returns all waypoints between 2 beacons.
 
-  Endpoint: /search/waypoints
+    Description: Returns all waypoints between 2 beacons.
 
-  Parameters:
-    beaconOrigin: first beacon id.
-    beaconDestination: end-point beacon id.
+    Endpoint: 
+    - /search/waypoints
 
-  Returns:
-          200 OK ( {"status" : "success"} )
-          400 Bad Request ( {"status" : "bad request"} )
-          401 Unauthorized ( {"status" : "unauthorized"} )
+    Headers:
+    - none
+
+    Parameters GET:
+    - beaconOrigin
+    - beaconDestination
+
+    Parameters POST:
+    - none
+
+    Parameters PUT:
+    - none
+
+    Parameters DELETE:
+    - none
+
+    Returns:
+    - 200 OK ( {"status" : "success"} )
+    - 400 Bad Request ( {"status" : "bad request"} )
+    - 401 Unauthorized ( {"status" : "unauthorized"} )
+
+
   """
 
   beacons=request.get_json()
@@ -518,32 +647,62 @@ def searchWaypoint():
 
   return jsonify(retorno)
 
-
+@app.route("/map/classrooms", methods=["GET"])
 @app.route("/search/classrooms/<id>", methods=["GET"])
-def searchClassrooms(id):
+def searchClassrooms(id=None):
   """
 
-  Returns the classroom identified by the ID inserted.
 
-  Endpoint: /search/classrooms/<id>
+    Description: Returns all the classrooms / Returns the classroom identified by the ID inserted
 
-  Returns:
-          200 OK ( {"status" : "success"} )
-          400 Bad Request ( {"status" : "bad request"} )
-          401 Unauthorized ( {"status" : "unauthorized"} )
+    Endpoint: 
+    - /map/classrooms
+    - /search/classrooms/<id>
+
+    Headers:
+    - none
+
+    Parameters GET:
+    - none
+
+    Parameters POST:
+    - none
+
+    Parameters PUT:
+    - none
+
+    Parameters DELETE:
+    - none
+
+    Returns:
+    - 200 OK ( {"status" : "success"} )
+    - 400 Bad Request ( {"status" : "bad request"} )
+    - 401 Unauthorized ( {"status" : "unauthorized"} )
+
+
   """
 
   db_obj=db_connection()
   mydb=db_obj["mydb"]
   mycursor=db_obj["mycursor"]
 
-  mycursor.execute("SELECT * FROM classroom WHERE id = '%s' ;" % id)
+  if id:
+    mycursor.execute("SELECT * FROM classroom WHERE id = '%s' ;" % id)
 
-  myresult = mycursor.fetchall()
+    myresult = mycursor.fetchall()
 
-  retorno=[]
-  for x in myresult:
-    retorno.append({"id":x[0], "name":x[1],"occupancy":x[2],"image":x[3],"idDepartment":x[4]})
+    retorno=[]
+    for x in myresult:
+      retorno.append({"id":x[0], "name":x[1],"occupancy":x[2],"image":x[3],"idDepartment":x[4]})
+  else:
+    mycursor.execute("SELECT * FROM classroom")
+
+    myresult = mycursor.fetchall()
+
+    retorno=[]
+    for x in myresult:
+      retorno.append({"id":x[0], "name":x[1],"occupancy":x[2],"image":x[3],"idDepartment":x[4]})
+
 
   return jsonify(retorno)
 
@@ -551,14 +710,34 @@ def searchClassrooms(id):
 @app.route("/search/departments/<id>", methods=["GET"])
 def searchDepartments(id):
   """
-  Returns the departments identified by the ID inserted.
 
-  Endpoint: /search/departments/<id>
 
-  Returns:
-          200 OK ( {"status" : "success"} )
-          400 Bad Request ( {"status" : "bad request"} )
-          401 Unauthorized ( {"status" : "unauthorized"} )
+    Description: Returns the departments identified by the ID inserted.
+
+    Endpoint: 
+    - /search/departments/<id>
+
+    Headers:
+    - none
+
+    Parameters GET:
+    - none
+
+    Parameters POST:
+    - none
+
+    Parameters PUT:
+    - none
+
+    Parameters DELETE:
+    - none
+
+    Returns:
+    - 200 OK ( {"status" : "success"} )
+    - 400 Bad Request ( {"status" : "bad request"} )
+    - 401 Unauthorized ( {"status" : "unauthorized"} )
+
+
   """
 
   db_obj=db_connection()
@@ -586,15 +765,37 @@ def searchDepartments(id):
 @app.route("/map/waypoint", methods=["POST"])
 def placeWaypoint():
   """
-  Parameters:
-    idPath -> id do path a que pertence o waypoint
-    x -> coordenada X no mapa
-    y -> coordenada Y no mapa
-    z -> andar do edificio
 
-  Headers:
-    Content-Type: application/json
-    authToken: <session token>
+
+    Description: Adds a new waypoint in the map, between two beacons.
+
+    Endpoint: 
+    - /map/waypoint
+
+    Headers:
+    - authToken
+
+    Parameters GET:
+    - none
+
+    Parameters POST:
+    - idPath
+    - x
+    - y
+    - z
+
+    Parameters PUT:
+    - none
+
+    Parameters DELETE:
+    - none
+
+    Returns:
+    - 200 OK ( {"status" : "success"} )
+    - 400 Bad Request ( {"status" : "bad request"} )
+    - 401 Unauthorized ( {"status" : "unauthorized"} )
+
+
   """
 
   parameters=request.get_json()
@@ -621,12 +822,35 @@ def placeWaypoint():
 @app.route("/map/path", methods=["POST"])
 def placePath():
   """
-  Parameters:
-    beaconFrom -> id do beacon de partida
-    beaconTo -> id do beacon de chegada
-  Headers:
-    authToken: <session token>
-    Content-Type: application/json
+
+
+    Description: Adds a new path to the map, by indicating the starting and the ending points.
+
+    Endpoint: 
+    - /map/path
+
+    Headers:
+    - authToken
+
+    Parameters GET:
+    - none
+
+    Parameters POST:
+    - beaconFrom
+    - beaconTo
+
+    Parameters PUT:
+    - none
+
+    Parameters DELETE:
+    - none
+
+    Returns:
+    - 200 OK ( {"status" : "success"} )
+    - 400 Bad Request ( {"status" : "bad request"} )
+    - 401 Unauthorized ( {"status" : "unauthorized"} )
+
+
   """
 
   parameters=request.get_json()
@@ -653,18 +877,37 @@ def placePath():
 @app.route("/account/feedback", methods=["GET", "POST"])
 def feedback():
   """
-  Parameters POST:
-    type -> text ou image ou video ou audio
-    content -> ficheiro em base64 ou texto normal. o plain text em base64 não pode ter o seguinte texto, nem nada que se assemelhe: data:image/png;base64,
-    idUser -> id do utilizador que está a fazer o upload
-    idBeacon -> id do beacon
-  Parameters GET:
-    idUser (optional)
-  Headers:
-    authToken: <session token>
-    Content-Type: application/json
 
-  NOTA: PARA ACEDER AOS UPLOADS, USAR O ENDPOINT: /uploads/nomedoficheiro.ext
+
+    Description: Returns / Adds feedback inserted by user. This feedback is the daily diary. NOTE: TO ACCESS UPLOADS, USE THE ENDPOINT: /uploads/nomedoficheiro.ext
+
+    Endpoint: 
+    - /account/feedback
+
+    Headers:
+    - (POST) authToken
+
+    Parameters GET:
+    - idUser : optional
+
+    Parameters POST:
+    - type -> text ou image ou video ou audio
+    - content -> ficheiro em base64 ou texto normal. o plain text em base64 não pode ter o seguinte texto, nem nada que se assemelhe: data:image/png;base64,
+    - idUser -> id do utilizador que está a fazer o upload
+    - idBeacon -> id do beacon
+
+    Parameters PUT:
+    - none
+
+    Parameters DELETE:
+    - none
+
+    Returns:
+    - 200 OK ( {"status" : "success"} )
+    - 400 Bad Request ( {"status" : "bad request"} )
+    - 401 Unauthorized ( {"status" : "unauthorized"} )
+
+
   """
 
   db_obj=db_connection()
@@ -737,7 +980,34 @@ def feedback():
 @app.route('/uploads/<filename>',methods = ['GET'])
 def get_files(filename):
   """
-    endpoint: /uploads/<nome do ficheiro>
+        
+
+    Description: Returns a file uploaded
+
+    Endpoint: 
+    - /uploads/<filename>
+
+    Headers:
+    - none
+
+    Parameters GET:
+    - none
+
+    Parameters POST:
+    - none
+
+    Parameters PUT:
+    - none
+
+    Parameters DELETE:
+    - none
+
+    Returns:
+    - 200 OK ( {"status" : "success"} )
+    - 400 Bad Request ( {"status" : "bad request"} )
+    - 401 Unauthorized ( {"status" : "unauthorized"} )
+
+
   """
   try:
     return send_from_directory("uploads/", filename)
@@ -748,12 +1018,37 @@ def get_files(filename):
 # francisco (não te esqueças que tens de receber o header com o token de autenticação)
 @app.route("/account/delete", methods=["DELETE"])
 def accountDelete():
-    # Content-Type: application/json
-    # Parameters:
-    #   username -> username of the account whose account is being deleted
-    #   password -> password to confirm user's auth
-    #
-    # authToken: <session token>
+    """
+          
+
+      Description: Deletes user account
+
+      Endpoint: 
+      - /account/delete
+
+      Headers:
+      - authToken
+
+      Parameters GET:
+      - none
+
+      Parameters POST:
+      - none
+
+      Parameters PUT:
+      - none
+
+      Parameters DELETE:
+      - username
+      - password
+
+      Returns:
+      - 200 OK ( {"status" : "success"} )
+      - 400 Bad Request ( {"status" : "bad request"} )
+      - 401 Unauthorized ( {"status" : "unauthorized"} )
+
+
+    """
 
     db_obj=db_connection()
     mydb=db_obj["mydb"]
@@ -785,13 +1080,38 @@ def accountDelete():
 
 @app.route("/account/change", methods=["PUT"])
 def accountChange():
-    # Content-Type: application/json
-    # Parameters:
-    #   username -> username of the account whose password is being changed
-    #   oldPassword -> old password to confirm user's auth
-    #   newPassword -> new password to be set
-    #
-    # authToken: <session token>
+    """
+          
+
+      Description: Change user's password
+
+      Endpoint: 
+      - /account/change
+
+      Headers:
+      - authToken
+
+      Parameters GET:
+      - none
+
+      Parameters POST:
+      - none
+
+      Parameters PUT:
+      - username
+      - oldPassword
+      - newPassword
+
+      Parameters DELETE:
+      - none
+
+      Returns:
+      - 200 OK ( {"status" : "success"} )
+      - 400 Bad Request ( {"status" : "bad request"} )
+      - 401 Unauthorized ( {"status" : "unauthorized"} )
+
+
+    """
 
     db_obj=db_connection()
     mydb=db_obj["mydb"]
@@ -829,15 +1149,38 @@ def accountChange():
 
 @app.route("/account/reviews", methods=["GET", "POST"])
 def accountReviews():
-    # Content-Type: application/json
-    # Parameters POST:
-    #   idUser -> id of the user attempting to post a review
-    #   body -> text to be included in said review
-    #
-    # Parameters GET:
-    #   None
-    #
-    # authToken: <session token>
+  """
+
+
+    Description: Returns all the reviews sent by users / Insert a new review
+
+    Endpoint: 
+    - /account/reviews
+
+    Headers:
+    - (POST) authToken
+
+    Parameters GET:
+    - none
+
+    Parameters POST:
+    - idUser
+    - body
+
+    Parameters PUT:
+    - none
+
+    Parameters DELETE:
+    - none
+
+    Returns:
+    - 200 OK ( {"status" : "success"} )
+    - 400 Bad Request ( {"status" : "bad request"} )
+    - 401 Unauthorized ( {"status" : "unauthorized"} )
+
+
+  """
+
   db_obj=db_connection()
   mydb=db_obj["mydb"]
   mycursor=db_obj["mycursor"]
