@@ -264,11 +264,13 @@ def accountSignup():
       cursor.execute(queryString, (credentials['name'], encryptedPassword, credentials['email'], authToken))
       mydb.commit()
 
+      currentUser = { "username": credentials['name'], "authToken": authToken, "userRole": "user" }
+
       # Log the newly created user in
       session["loggedin"] = True
       session["authToken"] = authToken
 
-      return Response(json.dumps({"status" : "account created successfully"}), status=200, mimetype='application/json')
+      return Response(json.dumps(currentUser), status=200, mimetype='application/json')
 
 
 @app.route("/account/forgot", methods=["GET"])
