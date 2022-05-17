@@ -16,6 +16,7 @@ import jwt
 from datetime import datetime, timedelta
 from flask_cors import CORS
 from flask import Response
+import random
 
 app = Flask(__name__, template_folder='./docs/_build/html', static_folder='./docs/_build/html/_static')
 cors = CORS(app, resources={r"*": {"origins": "*"}})
@@ -76,7 +77,7 @@ def docsModules(filename="index.html"):
 def accountLogin():
   """
 
-  
+
     Description: Logs the user in.
 
     Endpoint:
@@ -107,8 +108,6 @@ def accountLogin():
   """
 
   if "loggedin" not in session:
-    # Get the JSON containing the user input
-    credentials=request.get_json()
 
     # Database connection
     db     = db_connection()
@@ -116,8 +115,10 @@ def accountLogin():
     cursor = db["mycursor"]
 
     # User input validation
-    if not credentials["email"] or not credentials["password"]:
-      return Response(json.dumps("unauthorized - invalid credentials"), status=401, mimetype='application/json')
+    if not request.args.get("email") or not request.args.get("password"):
+      return Response(json.dumps({"status":"unauthorized - invalid credentials"}), status=401, mimetype='application/json')
+
+    credentials={"email":request.args.get("email"), "password":request.args.get("password")}
 
     # Check if the input email exists (password verification is done in another step)
     queryString = "SELECT email, password, authToken, id, idRole, name FROM user WHERE email=%s"
@@ -148,7 +149,7 @@ def accountLogin():
                   }
         authToken = jwt.encode(
                   payload,
-                  config('APP_SECRET_KEY'),
+                  config('APP_SECRET_KEY')+str(random.randint(0, 999999)),
                   algorithm='HS256'
                   )
 
@@ -164,6 +165,7 @@ def accountLogin():
         # Update authToken
         queryString = "UPDATE user SET authToken=%s WHERE email=%s"
         cursor.execute(queryString, (authToken,credentials['email']))
+        mydb.commit()
 
         # Log user in
         session["loggedin"] = True
@@ -277,9 +279,9 @@ def accountForgot(resetToken=None):
 
     Description: Allows user to recover their lost password. Allows GET and POST methods. GET -> Receives an email to which a message will be sent with a link to insert the new password. POST -> Allows the user to insert the new password, updating the database
 
-    Endpoint: 
-    - (GET) /account/forgot 
-    - (POST) /accout/forgot/<token> 
+    Endpoint:
+    - (GET) /account/forgot
+    - (POST) /accout/forgot/<token>
 
     Headers:
     - none
@@ -305,12 +307,12 @@ def accountForgot(resetToken=None):
   """
 
   if request.method=="GET":
-    # Get the JSON containing the user input
-    credentials=request.get_json()
 
     # User input validation
-    if not credentials["email"]:
+    if not request.args.get("email"):
       return Response(json.dumps({"status" : "bad request - missing parameters"}), status=400, mimetype='application/json')
+
+    credentials={"email":request.args.get("email")}
 
     # Database connection
     db     = db_connection()
@@ -323,7 +325,7 @@ def accountForgot(resetToken=None):
     results = cursor.fetchall()
 
     if len(results)<1:
-      return Response(json.dumps({"status" : "bad request -email does not exist"}), status=400, mimetype='application/json')
+      return Response(json.dumps({"status" : "bad request - email does not exist"}), status=400, mimetype='application/json')
 
     # Send email with link to recover password
     email = str(credentials['email'])
@@ -334,9 +336,7 @@ def accountForgot(resetToken=None):
 
       msg = Message('Password Reset Request', sender=('ISEP Indoor Mapping', "test@gmail.com"), recipients=[email])
 
-      #url = f"http://127.0.0.1:5000/account/forgot/{token}"
-      url = url_for('accountForgot', resetToken=token, _external=True)
-      msg.body = f'''To reset your password, visit the following link:\n{url}\nIf you did not make this request then simply ignore this email and no changes will be made.'''
+      msg.body = f'''To reset your password, using the following token: {token}. If you did not make this request then simply ignore this email and no changes will be made.'''
 
       mail.send(msg)
 
@@ -380,7 +380,7 @@ def accountLogout():
 
     Description: Logs the current user out.
 
-    Endpoint: 
+    Endpoint:
     - /account/logout
 
     Headers:
@@ -419,11 +419,11 @@ def accountLogout():
 @app.route("/search/beacons/<id>", methods=["GET"])
 def searchBeacon(id):
   """
-      
+
 
     Description: Returns information about one specific beacon
 
-    Endpoint: 
+    Endpoint:
     - /search/beacons/<id>
 
     Headers:
@@ -481,7 +481,7 @@ def beaconsOperation():
 
     Description: returns all the beacons in the map
 
-    Endpoint: 
+    Endpoint:
     - /map/beacons
     Headers:
     - (POST / PUT) authToken
@@ -612,7 +612,7 @@ def beaconsOperation():
     if "z" in parameters:
       query_update+=", z=%s"
       query_param+=(parameters["z"],)
-    
+
     # add suffix to query
     query_update+=" WHERE id=%s"
     query_param+=(parameters["beaconId"],)
@@ -631,7 +631,7 @@ def searchWaypoint():
 
     Description: Returns all waypoints between 2 beacons.
 
-    Endpoint: 
+    Endpoint:
     - /search/waypoints
 
     Headers:
@@ -684,7 +684,7 @@ def searchClassrooms(id=None):
 
     Description: Returns all the classrooms / Returns the classroom identified by the ID inserted
 
-    Endpoint: 
+    Endpoint:
     - /map/classrooms
     - /search/classrooms/<id>
 
@@ -742,7 +742,7 @@ def searchDepartments(id):
 
     Description: Returns the departments identified by the ID inserted.
 
-    Endpoint: 
+    Endpoint:
     - /search/departments/<id>
 
     Headers:
@@ -797,7 +797,7 @@ def placeWaypoint():
 
     Description: Adds a new waypoint in the map, between two beacons.
 
-    Endpoint: 
+    Endpoint:
     - /map/waypoint
 
     Headers:
@@ -854,7 +854,7 @@ def placePath():
 
     Description: Adds a new path to the map, by indicating the starting and the ending points.
 
-    Endpoint: 
+    Endpoint:
     - /map/path
 
     Headers:
@@ -909,7 +909,7 @@ def feedback():
 
     Description: Returns / Adds feedback inserted by user. This feedback is the daily diary. NOTE: TO ACCESS UPLOADS, USE THE ENDPOINT: /uploads/nomedoficheiro.ext
 
-    Endpoint: 
+    Endpoint:
     - /account/feedback
 
     Headers:
@@ -956,9 +956,9 @@ def feedback():
 
     notes=[]
     for x in myresult:
-      notes.append({"id":x[0], "idBeacon":x[1], "content":x[2], "idUser":x[3], "type":x[4], "dateTime": x[5], "username": x[6]})
+      notes.append({"id":x[0], "idBeacon":x[1], "content":x[2], "idUser":x[3], "type":x[4], "dateTime": str(x[5]), "username": x[6]})
 
-    return jsonify({"feedback":notes})
+    return Response(json.dumps({"feedback":notes}), status=200, mimetype='application/json')
 
   if request.method=="POST":
     parameters=request.get_json()
@@ -1008,11 +1008,11 @@ def feedback():
 @app.route('/uploads/<filename>',methods = ['GET'])
 def get_files(filename):
   """
-        
+
 
     Description: Returns a file uploaded
 
-    Endpoint: 
+    Endpoint:
     - /uploads/<filename>
 
     Headers:
@@ -1047,11 +1047,11 @@ def get_files(filename):
 @app.route("/account/delete", methods=["DELETE"])
 def accountDelete():
     """
-          
+
 
       Description: Deletes user account
 
-      Endpoint: 
+      Endpoint:
       - /account/delete
 
       Headers:
@@ -1098,6 +1098,8 @@ def accountDelete():
         mycursor.execute("DELETE FROM user WHERE authToken=%s AND user.name=%s", (request.headers.get("authToken"), parameters["username"] ))
         mydb.commit()
 
+        accountLogout()
+
         return Response(json.dumps({"status":"success"}), status=200, mimetype='application/json')
 
       print(parameters["password"])
@@ -1109,11 +1111,11 @@ def accountDelete():
 @app.route("/account/change", methods=["PUT"])
 def accountChange():
     """
-          
+
 
       Description: Change user's password
 
-      Endpoint: 
+      Endpoint:
       - /account/change
 
       Headers:
@@ -1169,7 +1171,7 @@ def accountChange():
           return Response(json.dumps({"status":"success"}), status=200, mimetype='application/json')
 
         return Response(json.dumps({"status":"bad request - new password format is invalid"}), status=400, mimetype='application/json')
-      
+
       return Response(json.dumps({"status":"unauthorized - wrong password"}), status=401, mimetype='application/json')
 
     return Response(json.dumps({"status" : "unauthorized - no permission"}), status=401, mimetype='application/json')
@@ -1182,7 +1184,7 @@ def accountReviews():
 
     Description: Returns all the reviews sent by users / Insert a new review
 
-    Endpoint: 
+    Endpoint:
     - /account/reviews
 
     Headers:
@@ -1239,7 +1241,7 @@ def accountReviews():
       return Response(json.dumps({"status":"success"}), status=200, mimetype='application/json')
 
     return Response(json.dumps({"status" : "unauthorized - no permission"}), status=401, mimetype='application/json')
-  return Response(json.dumps({"status" : "Method not allowed"}), status=405, mimetype='application/json')
+  return jsonify({})
 
 
 if __name__ == "__main__":
