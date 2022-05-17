@@ -260,7 +260,7 @@ def accountSignup():
                 )
 
       # Register the new user into the database
-      queryString = "INSERT INTO user (name, password, email, idRole, authToken) VALUES(%s, %s, %s, 1, %s)"
+      queryString = "INSERT INTO user (name, password, email, idRole, authToken) VALUES(%s, %s, %s, 2, %s)"
       cursor.execute(queryString, (credentials['name'], encryptedPassword, credentials['email'], authToken))
       mydb.commit()
 
@@ -474,7 +474,7 @@ def searchBeacon(id):
   return Response(json.dumps(beacon), status=200, mimetype='application/json')
 
 
-@app.route("/map/beacons", methods=["GET", "POST", "PUT"])
+@app.route("/map/beacons", methods=["GET", "POST", "PUT", "DELETE"])
 def beaconsOperation():
   """
 
@@ -618,6 +618,22 @@ def beaconsOperation():
     query_param+=(parameters["beaconId"],)
 
     mycursor.execute(query_update, query_param)
+    mydb.commit()
+
+    return Response(json.dumps({"status":"success"}), status=200, mimetype='application/json')
+  
+  if request.method=="DELETE":
+    parameters=request.get_json()
+
+    # check if user is an admin
+    if not request.headers.get("authToken") or not checkUserAdmin(request.headers.get("authToken")):
+      return Response(json.dumps({"status":"unauthorized - no permission"}), status=401, mimetype='application/json')
+
+    #Check if parameters where inputed correctly
+    if not parameters["beaconId"]:
+      return Response(json.dumps({"status":"bad request - missing parameter beaconId"}), status=400, mimetype='application/json')
+
+    mycursor.execute("DELETE FROM beacon WHERE id=%s", (parameters["beaconId"],))
     mydb.commit()
 
     return Response(json.dumps({"status":"success"}), status=200, mimetype='application/json')
