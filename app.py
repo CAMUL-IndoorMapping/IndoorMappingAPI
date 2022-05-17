@@ -15,6 +15,7 @@ import base64
 import jwt
 from datetime import datetime, timedelta
 from flask_cors import CORS
+from flask import Response
 
 app = Flask(__name__, template_folder='./docs/_build/html', static_folder='./docs/_build/html/_static')
 cors = CORS(app, resources={r"*": {"origins": "*"}})
@@ -116,7 +117,7 @@ def accountLogin():
 
     # User input validation
     if not credentials["email"] or not credentials["password"]:
-      return jsonify({"status":"unauthorized - invalid credentials"})
+      return Response(json.dumps("unauthorized - invalid credentials"), status=401, mimetype='application/json')
 
     # Check if the input email exists (password verification is done in another step)
     queryString = "SELECT email, password, authToken, id, idRole, name FROM user WHERE email=%s"
@@ -131,13 +132,13 @@ def accountLogin():
 
     # If the email doesn't exist, we don't even bother to check if the password is correct
     if len(myresult) < 1:
-      return jsonify({"status" : "unauthorized - user does not exist"})
+      return Response(json.dumps({"status" : "unauthorized - user does not exist"}), status=401, mimetype='application/json')
     else:
       # If it exists, we then check if the password is correct
       # Note: The encrypted password is being returned as "bytearray(b'')", and we want what is between the '', which is what this regex returns (this could be improved)
       passwordToCheck = re.search(r'\'(.*?)\'',str(myresult[0][QUERY_PASSWORD])).group(1)
       if not check_password_hash(passwordToCheck, credentials["password"]):
-        return jsonify({"status" : "unauthorized - invalid password"})
+        return Response(json.dumps({"status" : "unauthorized - invalid password"}), status=401, mimetype='application/json')
       else:
         # Generate new AuthToken
         payload = {
@@ -167,9 +168,9 @@ def accountLogin():
         # Log user in
         session["loggedin"] = True
         session["authToken"] = authToken
-        return jsonify(currentUser)
+        return Response(json.dumps(currentUser), status=200, mimetype='application/json')
   else:
-    return jsonify({"status" : "unauthorized - a user is already logged in"})
+    return Response(json.dumps({"status" : "unauthorized - an user is already logged in"}), status=401, mimetype='application/json')
 
 
 @app.route("/account/signup", methods=["POST"])
@@ -216,7 +217,7 @@ def accountSignup():
 
   # User input validation
   if not credentials["name"] or not credentials["email"] or not credentials["password"]:
-    return jsonify({"status":"bad request - missing parameters"})
+    return Response(json.dumps({"status" : "bad request - missing parameters"}), status=400, mimetype='application/json')
 
   # SQL Query to obtain all emails
   queryString = "SELECT email FROM user WHERE email=%s"
@@ -229,16 +230,16 @@ def accountSignup():
   nameRegex  = re.compile(r'[A-Za-z]{2,}')
 
   if not nameRegex.match(credentials["name"]):
-    return jsonify({"status":"bad request - invalid name"})
+    return Response(json.dumps({"status" : "bad request - invalid name"}), status=400, mimetype='application/json')
   elif not emailRegex.match(credentials["email"]):
-    return jsonify({"status":"bad request - invalid email"})
+    return Response(json.dumps({"status" : "bad request - invalid email"}), status=400, mimetype='application/json')
   elif not pwdRegex.match(credentials["password"]):
-    return jsonify({"status":"bad request - invalid password"})
+    return Response(json.dumps({"status" : "bad request - invalid password"}), status=400, mimetype='application/json')
   else:
 
     # Verify if email already exists
     if len(myresult)>0:
-      return jsonify({"status":f"bad request - email already exists ({credentials['email']})"})
+      return Response(json.dumps({"status":f"bad request - email already exists ({credentials['email']})"}), status=400, mimetype='application/json')
     else:
 
       # Encrypt the password using sha256
@@ -265,7 +266,7 @@ def accountSignup():
       session["loggedin"] = True
       session["authToken"] = authToken
 
-      return jsonify({"status":"account created successfully"})
+      return Response(json.dumps({"status" : "account created successfully"}), status=200, mimetype='application/json')
 
 
 @app.route("/account/forgot", methods=["GET"])
@@ -309,7 +310,7 @@ def accountForgot(resetToken=None):
 
     # User input validation
     if not credentials["email"]:
-      return jsonify({"status":"bad request - missing parameters"})
+      return Response(json.dumps({"status" : "bad request - missing parameters"}), status=400, mimetype='application/json')
 
     # Database connection
     db     = db_connection()
@@ -322,7 +323,7 @@ def accountForgot(resetToken=None):
     results = cursor.fetchall()
 
     if len(results)<1:
-      return jsonify({"status":"bad request - email does not exist"})
+      return Response(json.dumps({"status" : "bad request -email does not exist"}), status=400, mimetype='application/json')
 
     # Send email with link to recover password
     email = str(credentials['email'])
@@ -340,7 +341,7 @@ def accountForgot(resetToken=None):
       mail.send(msg)
 
     send_reset_email(email)
-    return jsonify({"status": f"success - sent email to {email}"})
+    return Response(json.dumps({"status": f"success - sent email to {email}"}), status=200, mimetype='application/json')
 
   if request.method=="POST":
 
@@ -349,10 +350,10 @@ def accountForgot(resetToken=None):
 
     # User input validation
     if resetToken == None:
-      return jsonify({"status":f"bad request - missing token - {resetToken}"})
+      return Response(json.dumps({"status":f"bad request - missing token - {resetToken}"}), status=400, mimetype='application/json')
 
     if not credentials["password"]:
-      return jsonify({"status":"bad request - missing parameters"})
+      return Response(json.dumps({"status":"bad request - missing parameters"}), status=400, mimetype='application/json')
 
     # Database connection
     db     = db_connection()
@@ -367,9 +368,9 @@ def accountForgot(resetToken=None):
       cursor.execute(queryString, (encryptedPassword, email))
       mydb.commit()
     except:
-      return jsonify({"status":f"bad request - token expired {resetToken}"})
+      return Response(json.dumps({"status":f"bad request - token expired {resetToken}"}), status=400, mimetype='application/json')
 
-    return jsonify({"status":f"success - {email} password updated"})
+    return Response(json.dumps({"status":f"success - {email} password updated"}), status=200, mimetype='application/json')
 
 
 @app.route("/account/logout", methods=["PUT"])
@@ -409,9 +410,9 @@ def accountLogout():
     # Deletes the session cookie
     session.pop('loggedin', None)
     session.pop('authToken', None)
-    return jsonify({"status" : "success"})
+    return Response(json.dumps({"status" : "success"}), status=200, mimetype='application/json')
   else:
-    return jsonify({"status" : "unauthorized - no logged in user"})
+    return Response(json.dumps({"status" : "unauthorized - no logged in user"}), status=401, mimetype='application/json')
 
 
 # andre g.
@@ -463,14 +464,14 @@ def searchBeacon(id):
 
   #Cheaking if it exists
   if len(myresult) == 0:
-    return jsonify({"status":"Not Found - This beacon was not found"})
+    return Response(json.dumps({"status":"Not Found - This beacon was not found"}), status=400, mimetype='application/json')
 
   #Beacon array
   beacon={}
   for x in myresult:
     beacon = {"idDevice":x[1], "idClassroom":x[2], "x":x[3], "y":x[4], "z":x[5]}
 
-  return jsonify(beacon)
+  return Response(json.dumps(beacon), status=200, mimetype='application/json')
 
 
 @app.route("/map/beacons", methods=["GET", "POST", "PUT"])
@@ -528,9 +529,9 @@ def beaconsOperation():
       retorno.append({"beaconId":b[0], "beaconName":b[1], "x":b[2], "y":b[3], "z":b[4], "classroomId":b[5], "classroomName":b[6]})
 
     if len(retorno)>0:
-      return jsonify({"beacons": retorno})
+      return Response(json.dumps({"beacons": retorno}), status=200, mimetype='application/json')
     else:
-      return jsonify({"status": "no beacons to show"})
+      return Response(json.dumps({"status": "no beacons to show"}), status=200, mimetype='application/json')
 
   if request.method=="POST":
     #Get data from request
@@ -538,11 +539,11 @@ def beaconsOperation():
 
     # check if user is an admin
     if not request.headers.get("authToken") or not checkUserAdmin(request.headers.get("authToken")):
-      return jsonify({"status":"bad request - no permission"})
+      return Response(json.dumps({"status":"unauthorized - no permission"}), status=401, mimetype='application/json')
 
     #Check if parameters where inputed correctly
     if not parameters["idDevice"] or not parameters["IdClassroom"] or not parameters["x"] or not parameters["y"] or not parameters["z"]:
-      return jsonify({"status":"bad request - missing parameters"})
+      return Response(json.dumps({"status":"bad request - missing parameters"}), status=400, mimetype='application/json')
 
     #MySQL cammand
     query_string="INSERT INTO beacon (idDevice, IdClassroom, x, y, z) VALUES (%s, %s, %s, %s, %s)"
@@ -558,9 +559,9 @@ def beaconsOperation():
     for y in myresult:
       print(y)
       if y[1] == parameters["idDevice"]:
-        return jsonify({"status":"bad request - This device already is being used"})
+        return Response(json.dumps({"status":"bad request - This device already is being used"}), status=400, mimetype='application/json')
       elif y[3] == parameters["x"] and y[4] == parameters["y"] and y[5] == parameters["z"]:
-        return jsonify({"status":f"bad request - A beacon with these coordinates x:({parameters['x']}), y:({parameters['y']}) and z:({parameters['z']}) already exists"})
+        return Response(json.dumps({"status":f"bad request - A beacon with these coordinates x:({parameters['x']}), y:({parameters['y']}) and z:({parameters['z']}) already exists"}), status=400, mimetype='application/json')
 
     #Execute insert cammand
     mycursor.execute(query_string, (parameters["idDevice"], int(parameters["IdClassroom"]), parameters["x"], parameters["y"], parameters["z"]))
@@ -573,20 +574,20 @@ def beaconsOperation():
 
     #Check if it was found
     if len(mysearchresult) < 1:
-      return jsonify({"status":"Error - Beacon wasn't haded"})
+      return Response(json.dumps({"status":"internal error - Beacon wasn't added"}), status=500, mimetype='application/json')
 
-    return jsonify({"beaaconId": mysearchresult[0][0]})
+    return Response(json.dumps({"beaconId": mysearchresult[0][0]}), status=200, mimetype='application/json')
 
   if request.method=="PUT":
     parameters=request.get_json()
 
     # check if user is an admin
     if not request.headers.get("authToken") or not checkUserAdmin(request.headers.get("authToken")):
-      return jsonify({"status":"bad request - no permission"})
+      return Response(json.dumps({"status":"unauthorized - no permission"}), status=401, mimetype='application/json')
 
     #Check if parameters where inputed correctly
     if not parameters["beaconId"] or len(parameters)<2:
-      return jsonify({"status":"bad request - missing parameters; at least 2 parameters; beaconId is mandatory"})
+      return Response(json.dumps({"status":"bad request - missing parameters; at least 2 parameters; beaconId is mandatory"}), status=400, mimetype='application/json')
 
     query_update="UPDATE beacon SET id=id"
     query_param=()
@@ -619,7 +620,7 @@ def beaconsOperation():
     mycursor.execute(query_update, query_param)
     mydb.commit()
 
-    return jsonify({"status":"success"})
+    return Response(json.dumps({"status":"success"}), status=200, mimetype='application/json')
 
 
 # daniel
@@ -659,7 +660,7 @@ def searchWaypoint():
 
   beacons=request.get_json()
   if not beacons["beaconOrigin"] or not beacons["beaconDestination"]:
-    return jsonify({"status" : "bad request - missing parameters"})
+    return Response(json.dumps({"status" : "bad request - missing parameters"}), status=400, mimetype='application/json')
 
   db_obj=db_connection()
   mydb=db_obj["mydb"]
@@ -673,7 +674,7 @@ def searchWaypoint():
   for x in myresult:
     retorno.append({"idPath":x[0], "x":x[1],"y":x[2],"z":x[3]})
 
-  return jsonify(retorno)
+  return Response(json.dumps(retorno), status=200, mimetype='application/json')
 
 @app.route("/map/classrooms", methods=["GET"])
 @app.route("/search/classrooms/<id>", methods=["GET"])
@@ -731,8 +732,7 @@ def searchClassrooms(id=None):
     for x in myresult:
       retorno.append({"id":x[0], "name":x[1],"occupancy":x[2],"image":x[3],"idDepartment":x[4]})
 
-
-  return jsonify(retorno)
+  return Response(json.dumps(retorno), status=200, mimetype='application/json')
 
 
 @app.route("/search/departments/<id>", methods=["GET"])
@@ -785,9 +785,9 @@ def searchDepartments(id):
     classrooms.append({"id":x[2], "name":x[3], "occupancy":x[4], "image":x[5]})
 
   if departmentId>0:
-    return jsonify({"departmentId":departmentId, "departmentDesignation":departmentDesignation, "classrooms":classrooms})
+    return Response(json.dumps({"departmentId":departmentId, "departmentDesignation":departmentDesignation, "classrooms":classrooms}), status=200, mimetype='application/json')
   else:
-    return jsonify({"status":"bad request - nothing to show"})
+    return Response(json.dumps({"status":"nothing to show"}), status=200, mimetype='application/json')
 
 # andre m.
 @app.route("/map/waypoint", methods=["POST"])
@@ -829,7 +829,7 @@ def placeWaypoint():
   parameters=request.get_json()
 
   if not parameters["idPath"] or not parameters["x"] or not parameters["y"] or not parameters["z"] or not request.headers.get("authToken"):
-    return jsonify({"status":"missing parameter(s)"})
+    return Response(json.dumps({"status":"bad request - missing parameter(s)"}), status=400, mimetype='application/json')
 
   db_obj=db_connection()
   mydb=db_obj["mydb"]
@@ -842,9 +842,9 @@ def placeWaypoint():
     mycursor.execute("INSERT INTO waypoint(idPath, x, y, z) VALUES (%s, %s, %s, %s)", (int(parameters["idPath"]), parameters["x"], parameters["y"], parameters["z"]))
     mydb.commit()
 
-    return jsonify({"status":"success"})
+    return Response(json.dumps({"status":"success"}), status=200, mimetype='application/json')
 
-  return jsonify({"status":"no permission"})
+  return Response(json.dumps({"status":"unauthorized - no permission"}), status=401, mimetype='application/json')
 
 
 @app.route("/map/path", methods=["POST"])
@@ -884,7 +884,7 @@ def placePath():
   parameters=request.get_json()
 
   if not parameters["beaconFrom"] or not parameters["beaconTo"] or not request.headers.get("authToken"):
-    return jsonify({"status":"missing parameter(s)"})
+    return Response(json.dumps({"status":"bad request - missing parameter(s)"}), status=400, mimetype='application/json')
 
   db_obj=db_connection()
   mydb=db_obj["mydb"]
@@ -897,9 +897,9 @@ def placePath():
     mycursor.execute("INSERT INTO path(idBeacon_From, idBeacon_To) VALUES (%s, %s)", (int(parameters["beaconFrom"]), int(parameters["beaconTo"]) ))
     mydb.commit()
 
-    return jsonify({"status":"success"})
+    return Response(json.dumps({"status":"success"}), status=200, mimetype='application/json')
 
-  return jsonify({"status":"no permission"})
+  return Response(json.dumps({"status":"unauthorized - no permission"}), status=401, mimetype='application/json')
 
 
 @app.route("/account/feedback", methods=["GET", "POST"])
@@ -965,7 +965,7 @@ def feedback():
 
     # verificar se os parametros de POST são válidos
     if not parameters["type"] or not parameters["content"] or not parameters["idUser"] or not parameters["idBeacon"] or not request.headers.get("authToken"):
-      return jsonify({"status":"missing parameter(s)"})
+      return Response(json.dumps({"status":"bad request - missing parameter(s)"}), status=400, mimetype='application/json')
 
     mycursor.execute("SELECT user.id FROM user INNER JOIN role ON user.idRole=role.id WHERE authToken=%s AND user.id=%s", (request.headers.get("authToken"), int(parameters["idUser"]) ))
     myresult = mycursor.fetchall()
@@ -1000,9 +1000,9 @@ def feedback():
       mycursor.execute("INSERT INTO note(type, content, idUser, idBeacon) VALUES (%s, %s, %s, %s)", (parameters["type"], content, int(parameters["idUser"]), int(parameters["idBeacon"]) ))
       mydb.commit()
 
-      return jsonify({"status":"success"})
+      return Response(json.dumps({"status":"success"}), status=200, mimetype='application/json')
 
-  return jsonify({"status":"no permission"})
+  return Response(json.dumps({"status":"unauthorized - no permission"}), status=401, mimetype='application/json')
 
 
 @app.route('/uploads/<filename>',methods = ['GET'])
@@ -1085,7 +1085,7 @@ def accountDelete():
     parameters=request.get_json()
 
     if not parameters["username"] or not parameters["password"] or not request.headers.get("authToken"):
-      return jsonify({"status":"missing parameter(s)"})
+      return Response(json.dumps({"status":"bad request - missing parameter(s)"}), status=400, mimetype='application/json')
 
     # Verify user
     mycursor.execute("SELECT user.id,user.password FROM user WHERE authToken=%s AND user.name=%s", (request.headers.get("authToken"), parameters["username"] ))
@@ -1098,12 +1098,12 @@ def accountDelete():
         mycursor.execute("DELETE FROM user WHERE authToken=%s AND user.name=%s", (request.headers.get("authToken"), parameters["username"] ))
         mydb.commit()
 
-        return jsonify({"status":"success"})
+        return Response(json.dumps({"status":"success"}), status=200, mimetype='application/json')
 
       print(parameters["password"])
-      return jsonify({"status":"wrong password"})
+      return Response(json.dumps({"status":"unauthorized - wrong password"}), status=401, mimetype='application/json')
 
-    return jsonify({"status":"no permission"})
+    return Response(json.dumps({"status":"unauthorized - no permission"}), status=401, mimetype='application/json')
 
 
 @app.route("/account/change", methods=["PUT"])
@@ -1148,7 +1148,7 @@ def accountChange():
     parameters=request.get_json()
 
     if not parameters["username"] or not parameters["oldPassword"] or not parameters["newPassword"] or not request.headers.get("authToken"):
-      return jsonify({"status":"missing parameter(s)"})
+      return Response(json.dumps({"status":"bad request - missing parameter(s)"}), status=400, mimetype='application/json')
 
     # Verify user
     mycursor.execute("SELECT user.id,user.password FROM user WHERE authToken=%s AND user.name=%s", (request.headers.get("authToken"), parameters["username"] ))
@@ -1166,13 +1166,13 @@ def accountChange():
           mycursor.execute("UPDATE user SET user.password=%s WHERE user.name=%s", (encryptedPassword, parameters["username"]))
           mydb.commit()
 
-          return jsonify({"status":"success"})
+          return Response(json.dumps({"status":"success"}), status=200, mimetype='application/json')
 
-        return jsonify({"status":"new password is invalid"})
+        return Response(json.dumps({"status":"bad request - new password format is invalid"}), status=400, mimetype='application/json')
+      
+      return Response(json.dumps({"status":"unauthorized - wrong password"}), status=401, mimetype='application/json')
 
-      return jsonify({"status":"wrong password"})
-
-    return jsonify({"status":"no permission"})
+    return Response(json.dumps({"status" : "unauthorized - no permission"}), status=401, mimetype='application/json')
 
 
 @app.route("/account/reviews", methods=["GET", "POST"])
@@ -1221,12 +1221,12 @@ def accountReviews():
     for result in myresult:
       resultList.append({"username":result[0], "review":result[1]})
 
-    return jsonify(resultList)
+    return Response(json.dumps(resultList), status=200, mimetype='application/json')
 
   if request.method=="POST":
     parameters=request.get_json()
     if not parameters["idUser"] or not parameters["body"] or not request.headers.get("authToken"):
-      return jsonify({"status":"missing parameter(s)"})
+      return Response(json.dumps({"status":"bad request - missing parameter(s)"}), status=400, mimetype='application/json')
 
     # Verify user
     mycursor.execute("SELECT user.id FROM user WHERE authToken=%s AND user.id=%s", (request.headers.get("authToken"), int(parameters["idUser"]) ))
@@ -1236,10 +1236,10 @@ def accountReviews():
       mycursor.execute("INSERT INTO review(idUser, text) VALUES (%s, %s)", (int(parameters["idUser"]), parameters["body"]))
       mydb.commit()
 
-      return jsonify({"status":"success"})
+      return Response(json.dumps({"status":"success"}), status=200, mimetype='application/json')
 
-    return jsonify({"status":"no permission"})
-  return jsonify({})
+    return Response(json.dumps({"status" : "unauthorized - no permission"}), status=401, mimetype='application/json')
+  return Response(json.dumps({"status" : "Method not allowed"}), status=405, mimetype='application/json')
 
 
 if __name__ == "__main__":
