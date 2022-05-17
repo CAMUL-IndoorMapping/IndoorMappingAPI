@@ -956,7 +956,7 @@ def feedback():
 
     notes=[]
     for x in myresult:
-      notes.append({"id":x[0], "idBeacon":x[1], "content":x[2], "idUser":x[3], "type":x[4], "dateTime": x[5], "username": x[6]})
+      notes.append({"id":x[0], "idBeacon":x[1], "content":x[2], "idUser":x[3], "type":x[4], "dateTime": str(x[5]), "username": x[6]})
 
     return Response(json.dumps({"feedback":notes}), status=200, mimetype='application/json')
 
@@ -1097,6 +1097,8 @@ def accountDelete():
       if check_password_hash(passwordToCheck, parameters["password"]):
         mycursor.execute("DELETE FROM user WHERE authToken=%s AND user.name=%s", (request.headers.get("authToken"), parameters["username"] ))
         mydb.commit()
+
+        accountLogout()
 
         return Response(json.dumps({"status":"success"}), status=200, mimetype='application/json')
 
