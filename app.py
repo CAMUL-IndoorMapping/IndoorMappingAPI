@@ -970,7 +970,6 @@ def feedback():
       sql_query+=" WHERE idUser=%s"
       params=(int(request.args.get("idUser")),)
 
-    print(sql_query)
     mycursor.execute(sql_query, params)
     myresult = mycursor.fetchall()
 
@@ -986,12 +985,7 @@ def feedback():
         if x[0] == y[1]:
           notes[count]["adminResponse"].append(y[2])
       
-      count+=1
-       
-
-    """   answers=[]
-    for y in mysearchresult:"""
-      
+      count+=1      
 
     return Response(json.dumps({"feedback":notes}), status=200, mimetype='application/json')
 
