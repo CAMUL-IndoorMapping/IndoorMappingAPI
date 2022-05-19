@@ -559,7 +559,6 @@ def beaconsOperation():
 
     #Check if beacon exists
     for y in myresult:
-      print(y)
       if y[1] == parameters["idDevice"]:
         return Response(json.dumps({"status":"bad request - This device already is being used"}), status=400, mimetype='application/json')
       elif y[3] == parameters["x"] and y[4] == parameters["y"] and y[5] == parameters["z"]:
@@ -961,20 +960,31 @@ def feedback():
   mycursor=db_obj["mycursor"]
 
   if request.method=="GET":
+    #sql_query="SELECT note.id, note.idBeacon, note.content, note.idUser, note.type, note.dateTime, user.name, feedbackAnswer.content as adminResponse FROM note INNER JOIN user ON user.id=note.idUser LEFT JOIN feedbackAnswer ON feedbackAnswer.feedbackId=note.id"
     sql_query="SELECT note.id, note.idBeacon, note.content, note.idUser, note.type, note.dateTime, user.name FROM note INNER JOIN user ON user.id=note.idUser"
+    getfeed_query="SELECT * FROM feedbackAnswer"
     params=()
 
     if request.args.get("idUser"):
       sql_query+=" WHERE idUser=%s"
       params=(int(request.args.get("idUser")),)
 
-    print(sql_query)
     mycursor.execute(sql_query, params)
     myresult = mycursor.fetchall()
 
+    mycursor.execute(getfeed_query)
+    mysearchresult=mycursor.fetchall()
+
     notes=[]
+    count=0
     for x in myresult:
-      notes.append({"id":x[0], "idBeacon":x[1], "content":x[2], "idUser":x[3], "type":x[4], "dateTime": str(x[5]), "username": x[6]})
+      notes.append({"id":x[0], "idBeacon":x[1], "content":x[2], "idUser":x[3], "type":x[4], "dateTime": str(x[5]), "username": x[6], "adminResponse":[]})
+
+      for y in mysearchresult:
+        if x[0] == y[1]:
+          notes[count]["adminResponse"].append(y[2])
+      
+      count+=1      
 
     return Response(json.dumps({"feedback":notes}), status=200, mimetype='application/json')
 
@@ -1021,6 +1031,134 @@ def feedback():
       return Response(json.dumps({"status":"success"}), status=200, mimetype='application/json')
 
   return Response(json.dumps({"status":"unauthorized - no permission"}), status=401, mimetype='application/json')
+
+
+@app.route('/uploads/answer',methods = ['POST', 'PUT', 'DELETE'])
+def feedbackAnswer():
+  """
+  
+   Description: Uploads a response to a feedback left by the user.
+
+   Endpoint:
+   - /uploads/answer
+
+   Headers:
+   - (PUT / DELETE) authToken
+
+   Parameters POST:
+   - feedbackId
+   - content
+
+   Parameters PUT:
+   - id : mandatory
+   - feedbackID : mandatory
+   - content : optional
+
+   Parameters DELETE:
+   - none
+
+   Returns:
+   - 200 OK ( {"status" : "success"} )
+   - 400 Unauthorized ( {"status":"bad request - missing parameters; at least 2 parameters; id is mandatory"} )
+   - 403 Unauthorized ( {"status":"bad request - no permission"} ) 
+
+
+
+  """
+  
+  #Connect to database
+  db_obj=db_connection()
+  mydb=db_obj["mydb"]
+  mycursor=db_obj["mycursor"]
+
+  
+
+  if request.method=="POST":
+    #Get data from request
+    parameters=request.get_json()
+
+    #check if user is an admin
+    if not request.headers.get("authToken") or not checkUserAdmin(request.headers.get("authToken")):
+     return Response(json.dumps({"status":"unauthorized - no permission"}), status=401, mimetype='application/json')
+
+    # check if parameters of POST are valid
+    if not parameters["feedbackId"] or not parameters["content"] or not request.headers.get("authToken"):
+    #if not parameters["feedbackId"] or not parameters["content"]:
+      return Response(json.dumps({"status":"bad request - missing parameter(s)"}), status=400, mimetype='application/json')
+    
+    #MySQL cammand
+    query_string="INSERT INTO feedbackAnswer (feedbackId, content) VALUES (%s, %s)"
+
+    #Execute insert cammand
+    mycursor.execute(query_string, (int(parameters["feedbackId"]), parameters["content"]))
+    mydb.commit()
+
+    #Check if answer was uploaded
+    query_confirm_id="SELECT id FROM feedbackAnswer WHERE feedbackId=%s AND content=%s"
+    mycursor.execute(query_confirm_id, (int(parameters["feedbackId"]), parameters["content"]))
+    mysearchresult=mycursor.fetchall()
+
+    #Check if it was found
+    if len(mysearchresult) < 1:
+      return Response(json.dumps({"status":"internal error - Answer wasn't uploaded"}), status=500, mimetype='application/json')
+    
+
+    return Response(json.dumps({"feedbackAnswerId": mysearchresult[0][0]}), status=200, mimetype='application/json')
+  
+  if request.method=="PUT":
+    #Get data from request
+    parameters=request.get_json()
+
+    #check if user is an admin
+    if not request.headers.get("authToken") or not checkUserAdmin(request.headers.get("authToken")):
+     return Response(json.dumps({"status":"unauthorized - no permission"}), status=401, mimetype='application/json')
+
+    # check if parameters of PUT are valid
+    if not parameters["id"] or len(parameters) < 1:
+      return Response(json.dumps({"status":"bad request - missing parameter(s)"}), status=400, mimetype='application/json')
+    
+    query_update="UPDATE feedbackAnswer SET id=id"
+    query_param=()
+
+    #add parameters to database
+    if "content" in parameters:
+      query_update+=", content=%s"
+      query_param+=(parameters["content"],)
+    
+    if "feedbackId" in parameters:
+      query_update+=", feedbackId=%s"
+      query_param+=(int(parameters["feedbackId"]),)
+
+    # add suffix to query
+    query_update+=" WHERE id=%s"
+    query_param+=(int(parameters["id"]))
+
+    #Execute cammand
+    mycursor.execute(query_update, query_param)
+    mydb.commit()
+
+    return Response(json.dumps({"status":"sucess"}), status=200, mimetype='application/json')
+  
+  #Delete request
+  if request.method=="DELETE":
+    #Get data from request
+    parameters=request.get_json()
+
+    #check if user is an admin
+    if not request.headers.get("authToken") or not checkUserAdmin(request.headers.get("authToken")):
+     return Response(json.dumps({"status":"unauthorized - no permission"}), status=401, mimetype='application/json')
+
+    # check if parameters of DELETE are valid
+    if not parameters["id"]:
+      return Response(json.dumps({"status":"bad request - missing parameter id"}), status=400, mimetype='application/json')
+
+    #Execute cammand
+    mycursor.execute("DELETE FROM feedbackAnswer WHERE id=%s", (int(parameters["id"]),))
+    mydb.commit()
+
+
+    return Response(json.dumps({"status":"sucess"}), status=200, mimetype='application/json')
+    
 
 
 @app.route('/uploads/<filename>',methods = ['GET'])
@@ -1120,7 +1258,6 @@ def accountDelete():
 
         return Response(json.dumps({"status":"success"}), status=200, mimetype='application/json')
 
-      print(parameters["password"])
       return Response(json.dumps({"status":"unauthorized - wrong password"}), status=401, mimetype='application/json')
 
     return Response(json.dumps({"status":"unauthorized - no permission"}), status=401, mimetype='application/json')
