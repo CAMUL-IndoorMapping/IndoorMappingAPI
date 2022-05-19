@@ -1040,7 +1040,7 @@ def feedback():
   return Response(json.dumps({"status":"unauthorized - no permission"}), status=401, mimetype='application/json')
 
 
-@app.route('/uploads/answer',methods = ['POS', 'PUT', 'DELETE'])
+@app.route('/uploads/answer',methods = ['POST', 'PUT', 'DELETE'])
 def feedbackAnswer():
   """
   
@@ -1091,6 +1091,7 @@ def feedbackAnswer():
 
     # check if parameters of POST are valid
     if not parameters["feedbackId"] or not parameters["content"] or not request.headers.get("authToken"):
+    #if not parameters["feedbackId"] or not parameters["content"]:
       return Response(json.dumps({"status":"bad request - missing parameter(s)"}), status=400, mimetype='application/json')
     
     #MySQL cammand
