@@ -559,7 +559,6 @@ def beaconsOperation():
 
     #Check if beacon exists
     for y in myresult:
-      print(y)
       if y[1] == parameters["idDevice"]:
         return Response(json.dumps({"status":"bad request - This device already is being used"}), status=400, mimetype='application/json')
       elif y[3] == parameters["x"] and y[4] == parameters["y"] and y[5] == parameters["z"]:
@@ -1077,7 +1076,6 @@ def feedbackAnswer():
   if request.method=="POST":
     #Get data from request
     parameters=request.get_json()
-    print("Hello world")
 
     #check if user is an admin
     if not request.headers.get("authToken") or not checkUserAdmin(request.headers.get("authToken")):
@@ -1260,7 +1258,6 @@ def accountDelete():
 
         return Response(json.dumps({"status":"success"}), status=200, mimetype='application/json')
 
-      print(parameters["password"])
       return Response(json.dumps({"status":"unauthorized - wrong password"}), status=401, mimetype='application/json')
 
     return Response(json.dumps({"status":"unauthorized - no permission"}), status=401, mimetype='application/json')
