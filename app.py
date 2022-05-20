@@ -675,9 +675,11 @@ def searchWaypoint():
 
   """
 
-  beacons=request.get_json()
-  if not beacons["beaconOrigin"] or not beacons["beaconDestination"]:
+  
+  if not request.args.get("beaconOrigin") or not request.args.get("beaconDestination"):
     return Response(json.dumps({"status" : "bad request - missing parameters"}), status=400, mimetype='application/json')
+
+  beacons={"beaconOrigin":request.args.get("beaconOrigin"), "beaconDestination":request.args.get("beaconDestination")}
 
   db_obj=db_connection()
   mydb=db_obj["mydb"]
